@@ -1,21 +1,27 @@
-import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Link } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Button } from "@/components/ui/button";
+import { Home } from "lucide-react";
 
 const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
-  }, [location.pathname]);
+  const { direction } = useLanguage();
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
+    <div className="min-h-screen bg-gradient-soft flex items-center justify-center px-6">
       <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
-        <a href="/" className="text-primary underline hover:text-primary/90">
-          Return to Home
-        </a>
+        <h1 className="text-8xl font-bold text-primary mb-4">404</h1>
+        <p className="text-xl text-muted-foreground mb-8">
+          {direction === 'rtl' 
+            ? 'عذراً! الصفحة غير موجودة'
+            : 'Oops! Page not found'
+          }
+        </p>
+        <Button variant="hero" asChild>
+          <Link to="/" className="flex items-center gap-2">
+            <Home className="h-5 w-5" />
+            {direction === 'rtl' ? 'العودة للرئيسية' : 'Back to Home'}
+          </Link>
+        </Button>
       </div>
     </div>
   );
