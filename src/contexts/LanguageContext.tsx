@@ -158,7 +158,7 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.contact': 'تواصل',
     'footer.privacy': 'الخصوصية',
     'footer.terms': 'الشروط',
-    'footer.copyright': '© 2024 عقّل. جميع الحقوق محفوظة.',
+    'footer.copyright': '© 2024 عَقِّل. جميع الحقوق محفوظة.',
     
     // Common
     'common.loading': 'جارٍ التحميل...',

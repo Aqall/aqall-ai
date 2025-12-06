@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { Sparkles } from 'lucide-react';
 
 interface LogoProps {
   className?: string;
@@ -11,20 +12,22 @@ export function Logo({ className, size = 'md' }: LogoProps) {
   const { language } = useLanguage();
   
   const sizes = {
-    sm: 'text-xl',
-    md: 'text-2xl',
-    lg: 'text-4xl',
+    sm: { text: 'text-xl', icon: 'h-4 w-4' },
+    md: { text: 'text-2xl', icon: 'h-5 w-5' },
+    lg: { text: 'text-4xl', icon: 'h-8 w-8' },
   };
 
+  // Always show "Aqall" in English for brand consistency
+  // The Arabic name عقّل is shown only when in Arabic mode
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div className={cn(
-        "font-bold tracking-tight",
-        sizes[size],
+        "font-extrabold tracking-tight",
+        sizes[size].text,
         language === 'ar' ? 'font-arabic' : 'font-sans'
       )}>
-        <span className="text-primary">
-          {language === 'ar' ? 'عقّل' : 'Aqall'}
+        <span className="text-gradient">
+          {language === 'ar' ? 'عَقِّل' : 'Aqall'}
         </span>
       </div>
     </div>
