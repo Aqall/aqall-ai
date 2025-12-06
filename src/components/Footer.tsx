@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Logo } from '@/components/Logo';
-import { Sparkles, Github, Twitter, Linkedin } from 'lucide-react';
+import { Github, Twitter, Linkedin } from 'lucide-react';
 
 export function Footer() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
 
   const footerLinks = {
     product: [
@@ -93,10 +93,6 @@ export function Footer() {
           <p className="text-sm text-muted-foreground">
             {t('footer.copyright')}
           </p>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span>{language === 'ar' ? 'صُنع بالذكاء الاصطناعي' : 'Made with AI'}</span>
-          </div>
         </div>
       </div>
     </footer>

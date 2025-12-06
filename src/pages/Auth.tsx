@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/Logo';
 import { LanguageToggle } from '@/components/LanguageToggle';
-import { ArrowLeft, Loader2, Mail, Lock, Sparkles, Code2, Wand2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail, Lock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const fadeInUp = {
@@ -190,41 +190,17 @@ export default function Auth() {
       </div>
 
       {/* Right side - Decorative */}
-      <div className="hidden lg:flex flex-1 bg-gradient-hero items-center justify-center p-16 relative overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.1),transparent_40%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_70%,rgba(255,255,255,0.05),transparent_40%)]" />
-        
-        {/* Floating icons */}
-        <motion.div 
-          className="absolute top-20 left-20"
-          animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
-            <Code2 className="h-8 w-8 text-white/80" />
-          </div>
-        </motion.div>
-        
-        <motion.div 
-          className="absolute bottom-32 right-20"
-          animate={{ y: [0, 15, 0], rotate: [0, -5, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-        >
-          <div className="w-14 h-14 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
-            <Wand2 className="h-7 w-7 text-white/80" />
-          </div>
-        </motion.div>
-
-        <motion.div 
-          className="absolute top-1/2 right-16"
-          animate={{ y: [0, -10, 0] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-        >
-          <div className="w-12 h-12 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center">
-            <Sparkles className="h-6 w-6 text-white/80" />
-          </div>
-        </motion.div>
+      <div className="hidden lg:flex flex-1 items-center justify-center p-16 relative overflow-hidden">
+        {/* Blurred background image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: 'url(/images/register.png)',
+            filter: 'blur(8px)',
+            transform: 'scale(1.1)'
+          }}
+        />
+        <div className="absolute inset-0 bg-black/20" />
         
         <motion.div 
           className="text-center text-white relative z-10"
@@ -232,17 +208,10 @@ export default function Auth() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.6 }}
         >
-          <motion.div
-            className="w-24 h-24 mx-auto mb-8 rounded-3xl bg-white/10 backdrop-blur-sm flex items-center justify-center"
-            animate={{ scale: [1, 1.05, 1] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Sparkles className="h-12 w-12 text-white" />
-          </motion.div>
           <h2 className="text-4xl font-bold mb-4">
             {language === 'ar' ? 'ابنِ أحلامك' : 'Build Your Dreams'}
           </h2>
-          <p className="text-white/70 max-w-sm mx-auto text-lg">
+          <p className="text-white/90 max-w-sm mx-auto text-lg">
             {language === 'ar' 
               ? 'صِف موقعك وشاهد السحر يحدث. لا حاجة للبرمجة.'
               : 'Describe your website and watch the magic happen. No coding required.'

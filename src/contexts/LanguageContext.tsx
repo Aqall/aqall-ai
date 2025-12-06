@@ -98,7 +98,7 @@ const translations: Record<Language, Record<string, string>> = {
     // How it works
     'howItWorks.title': 'كيف يعمل',
     'howItWorks.step1.title': 'صِف رؤيتك',
-    'howItWorks.step1.desc': 'أخبر عقّل بما تريد بناءه بلغة بسيطة.',
+    'howItWorks.step1.desc': 'أخبر أقل بما تريد بناءه بلغة بسيطة.',
     'howItWorks.step2.title': 'الذكاء الاصطناعي يُنتج الكود',
     'howItWorks.step2.desc': 'يقوم ذكاؤنا الاصطناعي بإنشاء موقع React كامل فوراً.',
     'howItWorks.step3.title': 'عدّل وحمّل',
@@ -154,11 +154,11 @@ const translations: Record<Language, Record<string, string>> = {
     'footer.legal': 'قانوني',
     'footer.features': 'المميزات',
     'footer.pricing': 'الأسعار',
-    'footer.about': 'عن عقّل',
+    'footer.about': 'عن أقل',
     'footer.contact': 'تواصل',
     'footer.privacy': 'الخصوصية',
     'footer.terms': 'الشروط',
-    'footer.copyright': '© 2024 عَقِّل. جميع الحقوق محفوظة.',
+    'footer.copyright': '© 2024 أقل. جميع الحقوق محفوظة.',
     
     // Common
     'common.loading': 'جارٍ التحميل...',

@@ -18,7 +18,7 @@ export function Logo({ className, size = 'md' }: LogoProps) {
   };
 
   // Always show "Aqall" in English for brand consistency
-  // The Arabic name عقّل is shown only when in Arabic mode
+  // The Arabic name أقل is shown only when in Arabic mode
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div className={cn(
@@ -27,7 +27,7 @@ export function Logo({ className, size = 'md' }: LogoProps) {
         language === 'ar' ? 'font-arabic' : 'font-sans'
       )}>
         <span className="text-gradient">
-          {language === 'ar' ? 'عَقِّل' : 'Aqall'}
+          {language === 'ar' ? 'أقل' : 'Aqall'}
         </span>
       </div>
     </div>

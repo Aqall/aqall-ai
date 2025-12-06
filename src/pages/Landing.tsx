@@ -137,29 +137,23 @@ export default function Landing() {
             initial="initial"
             animate="animate"
           >
-            {/* Badge */}
-            <motion.div variants={fadeInUp}>
-              <span className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/5 border border-primary/10 text-primary text-sm font-medium mb-8 shadow-sm">
-                <Sparkles className="h-4 w-4" />
-                <span>{language === 'ar' ? 'مدعوم بالذكاء الاصطناعي المتقدم' : 'Powered by Advanced AI'}</span>
-              </span>
-            </motion.div>
-
             {/* Main headline */}
             <motion.h1 
               variants={fadeInUp}
-              className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-foreground mb-8 leading-[1.1] tracking-tight"
+              className="hero-title text-center mb-8"
             >
               {language === 'ar' ? (
-                <>
-                  <span className="block">ابنِ مواقع مذهلة</span>
-                  <span className="block text-gradient">بقوة الذكاء الاصطناعي</span>
-                </>
+                <div className="hero-title-arabic">
+                  <div className="hero-title-line">
+                    <span>ابنِ مواقع مذهلة </span>
+                    <span className="hero-title-gradient">بقوة الذكاء الاصطناعي</span>
+                  </div>
+                </div>
               ) : (
-                <>
-                  <span className="block">Build Stunning Websites</span>
-                  <span className="block text-gradient">With AI Power</span>
-                </>
+                <div className="hero-title-english">
+                  <div className="hero-title-line">Build Stunning Websites</div>
+                  <div className="hero-title-line hero-title-gradient">With AI Power</div>
+                </div>
               )}
             </motion.h1>
 
@@ -222,14 +216,11 @@ export default function Landing() {
                 <div className="p-6 lg:p-8 space-y-6 bg-gradient-to-b from-muted/20 to-transparent">
                   {/* User message */}
                   <motion.div 
-                    className={`flex ${direction === 'rtl' ? 'flex-row-reverse' : 'flex-row'} gap-4`}
-                    initial={{ opacity: 0, x: direction === 'rtl' ? 30 : -30 }}
+                    className="flex flex-row justify-end gap-4"
+                    initial={{ opacity: 0, x: 30 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.8, duration: 0.5 }}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-semibold shadow-lg">
-                      U
-                    </div>
                     <div className="bg-background rounded-2xl px-5 py-4 shadow-card max-w-md border border-border/50">
                       <p className="text-sm leading-relaxed">
                         {language === 'ar' 
@@ -237,6 +228,9 @@ export default function Landing() {
                           : 'I want a modern restaurant website with a menu, reservation system, and elegant design'
                         }
                       </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-semibold shadow-lg flex-shrink-0">
+                      U
                     </div>
                   </motion.div>
                   

@@ -1,9 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
@@ -98,19 +99,19 @@
 
   html {
     scroll-behavior: smooth;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
   }
 
   html[dir="rtl"],
   html[dir="rtl"] body,
   html[dir="rtl"] * {
-    font-family: 'Cairo', 'Inter', system-ui, sans-serif;
+    font-family: 'Cairo', 'Space Grotesk', 'Inter', system-ui, sans-serif;
   }
 
   html[dir="ltr"],
   html[dir="ltr"] body,
   html[dir="ltr"] * {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
   }
 
   body {
@@ -130,11 +131,15 @@
 
 @layer components {
   .font-arabic {
-    font-family: 'Cairo', system-ui, sans-serif !important;
+    font-family: 'Cairo', 'Space Grotesk', system-ui, sans-serif !important;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "liga" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .font-english {
-    font-family: 'Inter', system-ui, sans-serif !important;
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif !important;
   }
 
   /* Gradient backgrounds */
@@ -222,6 +227,118 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  /* Text gradient for Arabic - safer rendering */
+  .text-gradient-arabic {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    /* Ensure proper Arabic rendering */
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "liga" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Force Cairo font for Arabic */
+    font-family: 'Cairo', system-ui, sans-serif !important;
+  }
+
+  /* Hero Title Styles */
+  .hero-title {
+    padding: 1.5rem 0;
+    overflow: visible;
+    width: 100%;
+  }
+
+  .hero-title-line {
+    display: block;
+    font-size: 3rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    padding: 0.75rem 0;
+    color: hsl(var(--foreground));
+    overflow: visible;
+    width: 100%;
+  }
+
+  @media (min-width: 768px) {
+    .hero-title-line {
+      font-size: 3.75rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .hero-title-line {
+      font-size: 4.5rem;
+    }
+  }
+
+  .hero-title-gradient {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-light)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Arabic Hero Title */
+  .hero-title-arabic {
+    font-family: 'Cairo', system-ui, sans-serif !important;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "liga" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    direction: rtl;
+    text-align: center;
+    width: 100%;
+    overflow: visible;
+    padding: 0;
+    box-sizing: border-box;
+    position: relative;
+  }
+
+  .hero-title-arabic .hero-title-line {
+    font-family: 'Cairo', system-ui, sans-serif !important;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "liga" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.4;
+    letter-spacing: 0;
+    direction: rtl;
+    text-align: center;
+    unicode-bidi: bidi-override;
+    overflow: visible;
+    width: 100%;
+    padding: 0.75rem 0;
+    box-sizing: border-box;
+    position: relative;
+    word-wrap: normal;
+    white-space: normal;
+  }
+
+  .hero-title-arabic .hero-title-line:first-child {
+    line-height: 1.5;
+  }
+
+  .hero-title-arabic .hero-title-gradient {
+    line-height: 1.4;
+    display: inline;
+  }
+
+  .hero-title-arabic .hero-title-line span {
+    display: inline;
+  }
+
+  /* English Hero Title */
+  .hero-title-english {
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  }
+
+  .hero-title-english .hero-title-line {
+    font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
 
   /* Floating animation */
