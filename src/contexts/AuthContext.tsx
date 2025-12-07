@@ -71,8 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(mapSupabaseUser(session.user));
       } else {
         setUser(null);
-      }
-      setIsLoading(false);
+    }
+    setIsLoading(false);
     });
 
     return () => {
@@ -92,10 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Provide more user-friendly error messages
         if (error.message.includes('Invalid login credentials')) {
           return { error: 'Invalid email or password. Please check your credentials and try again.' };
-        }
+    }
         if (error.message.includes('Email not confirmed')) {
           return { error: 'Please check your email and confirm your account before logging in.' };
-        }
+    }
         return { error: error.message };
       }
 
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: 'Please check your email to confirm your account.' };
       }
 
-      return {};
+    return {};
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'An unexpected error occurred' };
     }

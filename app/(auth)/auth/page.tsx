@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/Logo';
 import { LanguageToggle } from '@/components/LanguageToggle';
-import { ArrowLeft, Loader2, Mail, Lock, CheckCircle2, MailCheck } from 'lucide-react';
+import { ArrowLeft, Loader2, Mail, Lock, MailCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 const fadeInUp = {

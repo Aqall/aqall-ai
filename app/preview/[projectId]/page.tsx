@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
-import { getProject, Project } from '@/lib/projectStore';
-import { downloadProjectAsZip, BuildResult } from '@/lib/mockApi';
+import { getProjectById } from '@/lib/projectService';
+import { getBuildByVersion, getBuildsByProject } from '@/lib/buildService';
 import { 
   ArrowLeft, 
   Download, 
@@ -47,7 +48,6 @@ export default function Preview() {
   const { t, direction } = useLanguage();
   const router = useRouter();
   
-  const [project, setProject] = useState<Project | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<number>(1);
   const [viewport, setViewport] = useState<ViewportSize>('desktop');
   const [isDownloading, setIsDownloading] = useState(false);
@@ -59,45 +59,106 @@ export default function Preview() {
     }
   }, [user, authLoading, router]);
 
-  // Load project
-  useEffect(() => {
-    if (projectId) {
-      const loadedProject = getProject(projectId);
-      if (loadedProject && loadedProject.builds.length > 0) {
-        setProject(loadedProject);
-        const version = versionParam ? parseInt(versionParam) : loadedProject.builds.length;
-        setSelectedVersion(version);
-      } else {
-        router.push('/dashboard');
+  // Load project from Supabase
+  const {
+    data: project,
+    isLoading: projectLoading,
+    error: projectError,
+  } = useQuery({
+    queryKey: ['project', projectId, user?.id],
+    queryFn: async () => {
+      if (!user || !projectId) throw new Error('User or project ID missing');
+      const supabaseProject = await getProjectById(user.id, projectId);
+      if (!supabaseProject) {
+        throw new Error('Project not found');
       }
+      return supabaseProject;
+    },
+    enabled: !!user && !!projectId,
+  });
+
+  // Load builds from Supabase
+  const {
+    data: builds = [],
+    isLoading: buildsLoading,
+  } = useQuery({
+    queryKey: ['builds', projectId],
+    queryFn: () => getBuildsByProject(projectId),
+    enabled: !!projectId,
+  });
+
+  // Load specific build by version
+  const {
+    data: currentBuild,
+    isLoading: buildLoading,
+  } = useQuery({
+    queryKey: ['build', projectId, selectedVersion],
+    queryFn: () => getBuildByVersion(projectId, selectedVersion),
+    enabled: !!projectId && !!selectedVersion,
+  });
+
+  // Set initial version from URL param or latest
+  useEffect(() => {
+    if (builds.length > 0) {
+      const version = versionParam ? parseInt(versionParam) : builds[0].version;
+      setSelectedVersion(version);
+    } else if (builds.length === 0 && !buildsLoading) {
+      // No builds found, redirect to build page
+      router.push(`/build/${projectId}`);
     }
-  }, [projectId, versionParam, router]);
+  }, [builds, versionParam, buildsLoading, projectId, router]);
 
-  const getCurrentBuild = (): BuildResult | undefined => {
-    if (!project) return undefined;
-    return project.builds.find(b => b.version === selectedVersion);
-  };
+  // Redirect if project not found
+  useEffect(() => {
+    if (projectError && !projectLoading) {
+      router.push('/dashboard');
+    }
+  }, [projectError, projectLoading, router]);
 
-  const handleDownload = () => {
-    const build = getCurrentBuild();
-    if (!build || !project) return;
+  const handleDownload = async () => {
+    if (!currentBuild || !project) return;
 
     setIsDownloading(true);
     
-    // Simulate download delay
-    setTimeout(() => {
-      downloadProjectAsZip(build.files, project.name);
-      setIsDownloading(false);
+    try {
+      // Download ZIP from API
+      const response = await fetch(`/api/download/${projectId}?version=${selectedVersion}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to download project');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project.name}-v${currentBuild.version}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
       toast({
         title: direction === 'rtl' ? 'تم التحميل' : 'Downloaded',
         description: direction === 'rtl' 
           ? 'تم تحميل المشروع بنجاح'
           : 'Project downloaded successfully',
       });
-    }, 500);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: direction === 'rtl' ? 'خطأ' : 'Error',
+        description: direction === 'rtl' 
+          ? 'فشل في تحميل المشروع'
+          : 'Failed to download project',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
-  if (authLoading || !project) {
+  if (authLoading || projectLoading || buildsLoading || buildLoading || !project) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -105,9 +166,7 @@ export default function Preview() {
     );
   }
 
-  const currentBuild = getCurrentBuild();
-
-  if (!currentBuild) {
+  if (!currentBuild || !currentBuild.preview_html) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -172,7 +231,7 @@ export default function Preview() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {project.builds.map((build) => (
+              {builds.map((build) => (
                 <DropdownMenuItem 
                   key={build.id}
                   onClick={() => setSelectedVersion(build.version)}
@@ -223,10 +282,10 @@ export default function Preview() {
           }}
         >
           <iframe
-            srcDoc={currentBuild.previewHtml}
+            srcDoc={currentBuild.preview_html || ''}
             title="Website Preview"
             className="w-full h-full border-0"
-            sandbox="allow-scripts"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation"
           />
         </div>
       </main>

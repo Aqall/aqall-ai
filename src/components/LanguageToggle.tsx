@@ -1,7 +1,6 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
-import { Languages } from 'lucide-react';
 
 export function LanguageToggle({ className }: { className?: string }) {
   const { language, setLanguage } = useLanguage();

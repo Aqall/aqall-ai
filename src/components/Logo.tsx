@@ -1,7 +1,6 @@
 import React from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
-import { Sparkles } from 'lucide-react';
 
 interface LogoProps {
   className?: string;

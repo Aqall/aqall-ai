@@ -4,13 +4,14 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { getUserProjects, createProject, deleteProject, Project } from '@/lib/projectStore';
-import { Plus, Folder, Clock, Layers, Trash2, Loader2, FolderOpen, Sparkles } from 'lucide-react';
+import { listProjects, createProject, deleteProject } from '@/lib/projectService';
+import { Plus, Folder, Clock, Trash2, Loader2, FolderOpen, Sparkles } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -37,11 +38,10 @@ const staggerContainer = {
 
 export default function Dashboard() {
   const { user, isLoading: authLoading } = useAuth();
-  const { t, direction, language } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
+  const queryClient = useQueryClient();
   
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -52,42 +52,82 @@ export default function Dashboard() {
     }
   }, [user, authLoading, router]);
 
-  // Load projects
-  useEffect(() => {
-    if (user) {
-      const userProjects = getUserProjects(user.id);
-      setProjects(userProjects);
-    }
-  }, [user]);
+  // Fetch projects using React Query
+  const {
+    data: projects = [],
+    isLoading: projectsLoading,
+    error: projectsError,
+  } = useQuery({
+    queryKey: ['projects', user?.id],
+    queryFn: () => {
+      if (!user) throw new Error('User not authenticated');
+      return listProjects(user.id);
+    },
+    enabled: !!user,
+  });
+
+  // Create project mutation
+  const createMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!user) throw new Error('User not authenticated');
+      return createProject(user.id, { name });
+    },
+    onSuccess: (project) => {
+      queryClient.invalidateQueries({ queryKey: ['projects', user?.id] });
+      setNewProjectName('');
+      setDialogOpen(false);
+      
+      toast({
+        title: language === 'ar' ? 'تم إنشاء المشروع' : 'Project created',
+        description: language === 'ar' ? 'يمكنك البدء في البناء الآن' : 'You can start building now',
+      });
+
+      // Navigate to the build page
+      router.push(`/build/${project.id}`);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || (language === 'ar' ? 'فشل في إنشاء المشروع' : 'Failed to create project'),
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Delete project mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      if (!user) throw new Error('User not authenticated');
+      return deleteProject(user.id, projectId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects', user?.id] });
+      toast({
+        title: language === 'ar' ? 'تم حذف المشروع' : 'Project deleted',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Error',
+        description: error.message || (language === 'ar' ? 'فشل في حذف المشروع' : 'Failed to delete project'),
+        variant: 'destructive',
+      });
+    },
+  });
 
   const handleCreateProject = () => {
     if (!newProjectName.trim() || !user) return;
-    
-    setIsCreating(true);
-    const project = createProject(user.id, newProjectName.trim());
-    setProjects(prev => [...prev, project]);
-    setNewProjectName('');
-    setDialogOpen(false);
-    setIsCreating(false);
-    
-    toast({
-      title: language === 'ar' ? 'تم إنشاء المشروع' : 'Project created',
-      description: language === 'ar' ? 'يمكنك البدء في البناء الآن' : 'You can start building now',
-    });
-
-    // Navigate to the build page
-    router.push(`/build/${project.id}`);
+    createMutation.mutate(newProjectName.trim());
   };
 
   const handleDeleteProject = (projectId: string) => {
-    deleteProject(projectId);
-    setProjects(prev => prev.filter(p => p.id !== projectId));
-    toast({
-      title: language === 'ar' ? 'تم حذف المشروع' : 'Project deleted',
-    });
+    if (confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المشروع؟' : 'Are you sure you want to delete this project?')) {
+      deleteMutation.mutate(projectId);
+    }
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
     return new Intl.DateTimeFormat(language === 'ar' ? 'ar' : 'en', {
       day: 'numeric',
       month: 'short',
@@ -95,10 +135,25 @@ export default function Dashboard() {
     }).format(date);
   };
 
-  if (authLoading) {
+  if (authLoading || projectsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (projectsError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-destructive mb-4">
+            {language === 'ar' ? 'حدث خطأ في تحميل المشاريع' : 'Failed to load projects'}
+          </p>
+          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['projects', user?.id] })}>
+            {language === 'ar' ? 'إعادة المحاولة' : 'Retry'}
+          </Button>
+        </div>
       </div>
     );
   }
@@ -151,8 +206,8 @@ export default function Dashboard() {
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>
                     {language === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
-                  <Button onClick={handleCreateProject} disabled={!newProjectName.trim() || isCreating}>
-                    {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : (language === 'ar' ? 'إنشاء' : 'Create')}
+                  <Button onClick={handleCreateProject} disabled={!newProjectName.trim() || createMutation.isPending}>
+                    {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : (language === 'ar' ? 'إنشاء' : 'Create')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -215,12 +270,9 @@ export default function Dashboard() {
                         <CardDescription className="flex items-center gap-4 mt-2">
                           <span className="flex items-center gap-1.5">
                             <Clock className="h-3.5 w-3.5" />
-                            {formatDate(project.updatedAt)}
+                            {formatDate(project.updated_at)}
                           </span>
-                          <span className="flex items-center gap-1.5">
-                            <Layers className="h-3.5 w-3.5" />
-                            {project.builds.length} {t('dashboard.project.versions')}
-                          </span>
+                          {/* TODO: Add builds count when builds table is integrated */}
                         </CardDescription>
                       </CardHeader>
                     </Link>

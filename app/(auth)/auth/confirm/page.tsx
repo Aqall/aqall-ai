@@ -14,14 +14,14 @@ import Link from 'next/link';
 export default function ConfirmEmail() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
-    let authListener: { data: { subscription: any } } | null = null;
+    let authListener: { data: { subscription: { unsubscribe: () => void } } } | null = null;
 
     const handleEmailConfirmation = async () => {
       // Listen for auth state changes (Supabase auto-detects sessions)

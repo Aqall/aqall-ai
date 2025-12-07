@@ -13,7 +13,7 @@ import { LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
 
 export function Navbar() {
   const { user, logout } = useAuth();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 

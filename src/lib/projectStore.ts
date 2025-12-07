@@ -1,36 +1,34 @@
 /**
  * ============================================
- * CURRENTLY MOCKED – to be replaced by Supabase + OpenAI backend
+ * DEPRECATED – Project metadata migrated to Supabase
  * ============================================
  * 
- * This file provides mock project persistence using localStorage for MVP Phase 1.
- * All project CRUD operations are currently stored client-side only.
+ * ⚠️ **THIS FILE IS DEPRECATED** ⚠️
  * 
- * **What this will be replaced with:**
- * - Supabase `projects` table (see `supabase/schema.sql`)
- * - Supabase `builds` table for storing website versions
- * - Supabase client library (`@supabase/supabase-js`) for queries
- * - Row Level Security (RLS) policies for user-scoped data access
- * - Real-time subscriptions for project updates (optional)
+ * Project metadata (name, timestamps) has been migrated to Supabase Postgres.
+ * Use `src/lib/projectService.ts` for all project CRUD operations.
  * 
- * **Migration path:**
- * 1. Replace `getUserProjects()` with Supabase query:
- *    `supabase.from('projects').select('*').eq('user_id', userId)`
- * 2. Replace `createProject()` with Supabase insert:
- *    `supabase.from('projects').insert({ name, user_id })`
- * 3. Replace `addBuildToProject()` with Supabase insert to `builds` table
- * 4. Replace `deleteProject()` with Supabase delete (cascades to builds via FK)
- * 5. Replace `updateProjectName()` with Supabase update
+ * **Migration Status:**
+ * ✅ Project metadata (name, timestamps) → Supabase `projects` table
+ * ⏳ Builds data → Still using localStorage temporarily (will migrate to `builds` table)
  * 
- * **Database schema:**
- * - `profiles` table: user profiles (linked to auth.users)
- * - `projects` table: user projects with name, timestamps
- * - `builds` table: website versions with prompt, files (JSONB), preview_html
- * - All tables have RLS enabled for security
+ * **Current Usage:**
+ * - `getProject()` - Used temporarily in BuildChat/Preview to load legacy builds from localStorage
+ * - `addBuildToProject()` - Used temporarily to store builds in localStorage until builds table is implemented
  * 
- * **Dependencies to add:**
- * - `@supabase/supabase-js` for client-side queries
- * - Supabase client initialization in app context
+ * **Replacement:**
+ * - Use `projectService.listProjects()`, `projectService.createProject()`, etc. for project metadata
+ * - Builds will be migrated to Supabase `builds` table in a future step
+ * 
+ * **Files still using this (temporary):**
+ * - `app/build/[projectId]/page.tsx` - For legacy builds storage
+ * - `app/preview/[projectId]/page.tsx` - For legacy builds retrieval
+ * 
+ * **To remove this file:**
+ * 1. Migrate builds to Supabase `builds` table
+ * 2. Update BuildChat and Preview to use Supabase for builds
+ * 3. Remove all imports of this file
+ * 4. Delete this file
  */
 
 import { BuildResult } from './mockApi';
@@ -51,11 +49,11 @@ function getProjects(): Project[] {
   if (!stored) return [];
   try {
     const parsed = JSON.parse(stored);
-    return parsed.map((p: any) => ({
+    return parsed.map((p: { createdAt: string; updatedAt: string; builds: Array<{ timestamp: string }> }) => ({
       ...p,
       createdAt: new Date(p.createdAt),
       updatedAt: new Date(p.updatedAt),
-      builds: p.builds.map((b: any) => ({
+      builds: p.builds.map((b: { timestamp: string }) => ({
         ...b,
         timestamp: new Date(b.timestamp),
       })),

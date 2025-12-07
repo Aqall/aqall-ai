@@ -8,7 +8,7 @@ import { User } from '@supabase/supabase-js';
 export async function ensureProfile(user: User): Promise<{ error?: string }> {
   try {
     // Check if profile already exists
-    const { data: existingProfile, error: fetchError } = await supabase
+    const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
       .eq('id', user.id)

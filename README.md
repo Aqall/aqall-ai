@@ -1,73 +1,108 @@
-# Welcome to your Lovable project
+# Aqall - AI-Powered Arabic-First Website Builder
 
-## Project info
+Build beautiful websites with AI. Describe your vision in Arabic or English, and watch it come to life. No coding required.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Getting Started
 
-## How can I edit this code?
+### Prerequisites
 
-There are several ways of editing your application.
+- Node.js 18+ and npm (or bun)
+- A Supabase project (for authentication and database)
 
-**Use Lovable**
+### Installation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+```bash
+# Install dependencies
+npm install
 
-Changes made via Lovable will be committed automatically to this repo.
+# Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your Supabase credentials
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Run development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🛠️ Tech Stack
 
-**Use GitHub Codespaces**
+- **Framework**: Next.js 14.2 (App Router)
+- **Language**: TypeScript
+- **UI**: React 18 + Tailwind CSS + shadcn/ui
+- **Authentication**: Supabase Auth
+- **Database**: Supabase (PostgreSQL)
+- **Styling**: Tailwind CSS with custom design tokens
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 📁 Project Structure
 
-## What technologies are used for this project?
+```
+app/                    # Next.js App Router pages
+  (auth)/              # Auth route group (no navbar)
+    auth/              # Authentication pages
+  build/               # Build chat pages
+  dashboard/           # Dashboard
+  preview/             # Preview pages
+src/
+  components/          # React components
+  contexts/           # React contexts (Auth, Language)
+  lib/                # Utilities and services
+  hooks/              # Custom React hooks
+supabase/              # Database schema
+docs/                  # Documentation
+```
 
-This project is built with:
+## 🔧 Configuration
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Environment Variables
 
-## How can I deploy this project?
+Create `.env.local` with:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```env
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
 
-## Can I connect a custom domain to my Lovable project?
+### Database Setup
 
-Yes, you can!
+1. Go to your Supabase Dashboard
+2. Run the SQL from `supabase/setup-profiles.sql` in the SQL Editor
+3. This creates the `profiles` table with RLS policies
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+See `docs/SUPABASE_SETUP.md` for detailed instructions.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 📚 Documentation
+
+- `docs/ROADMAP_AQALL_MVP.md` - Development roadmap
+- `docs/SUPABASE_SETUP.md` - Supabase setup guide
+- `docs/SUPABASE_EMAIL_SETUP.md` - Email confirmation setup
+
+## 🚢 Deployment
+
+### Build for Production
+
+```bash
+npm run build
+npm start
+```
+
+### Deploy to Vercel
+
+1. Push your code to GitHub
+2. Import project in Vercel
+3. Add environment variables
+4. Deploy
+
+## 🌐 Features
+
+- ✅ Bilingual support (Arabic/English) with RTL/LTR
+- ✅ Supabase Authentication with email confirmation
+- ✅ User profile management
+- ✅ AI-powered website generation (mock for now)
+- ✅ Project management
+- ✅ Live preview
+- ✅ Responsive design
+
+## 📝 License
+
+Private - All rights reserved
