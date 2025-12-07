@@ -1,5 +1,37 @@
-// TODO: Connect to Supabase for real persistence
-// This is a mock store using localStorage
+/**
+ * ============================================
+ * CURRENTLY MOCKED – to be replaced by Supabase + OpenAI backend
+ * ============================================
+ * 
+ * This file provides mock project persistence using localStorage for MVP Phase 1.
+ * All project CRUD operations are currently stored client-side only.
+ * 
+ * **What this will be replaced with:**
+ * - Supabase `projects` table (see `supabase/schema.sql`)
+ * - Supabase `builds` table for storing website versions
+ * - Supabase client library (`@supabase/supabase-js`) for queries
+ * - Row Level Security (RLS) policies for user-scoped data access
+ * - Real-time subscriptions for project updates (optional)
+ * 
+ * **Migration path:**
+ * 1. Replace `getUserProjects()` with Supabase query:
+ *    `supabase.from('projects').select('*').eq('user_id', userId)`
+ * 2. Replace `createProject()` with Supabase insert:
+ *    `supabase.from('projects').insert({ name, user_id })`
+ * 3. Replace `addBuildToProject()` with Supabase insert to `builds` table
+ * 4. Replace `deleteProject()` with Supabase delete (cascades to builds via FK)
+ * 5. Replace `updateProjectName()` with Supabase update
+ * 
+ * **Database schema:**
+ * - `profiles` table: user profiles (linked to auth.users)
+ * - `projects` table: user projects with name, timestamps
+ * - `builds` table: website versions with prompt, files (JSONB), preview_html
+ * - All tables have RLS enabled for security
+ * 
+ * **Dependencies to add:**
+ * - `@supabase/supabase-js` for client-side queries
+ * - Supabase client initialization in app context
+ */
 
 import { BuildResult } from './mockApi';
 

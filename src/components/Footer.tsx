@@ -1,5 +1,7 @@
+'use client';
+
 import React from 'react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Logo } from '@/components/Logo';
@@ -52,7 +54,7 @@ export function Footer() {
             <ul className="space-y-3 text-sm">
               {footerLinks.product.map((link, i) => (
                 <li key={i}>
-                  <Link to={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Link href={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -66,7 +68,7 @@ export function Footer() {
             <ul className="space-y-3 text-sm">
               {footerLinks.company.map((link, i) => (
                 <li key={i}>
-                  <Link to={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Link href={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -80,7 +82,7 @@ export function Footer() {
             <ul className="space-y-3 text-sm">
               {footerLinks.legal.map((link, i) => (
                 <li key={i}>
-                  <Link to={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Link href={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
                     {link.label}
                   </Link>
                 </li>

@@ -1,5 +1,8 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+'use client';
+
+import React, { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -7,17 +10,16 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
-import { useState } from 'react';
 
 export function Navbar() {
   const { user, logout } = useAuth();
   const { t, language } = useLanguage();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
   };
 
   return (
@@ -30,7 +32,7 @@ export function Navbar() {
       <div className="mx-4 mt-4">
         <div className="glass-strong rounded-2xl shadow-soft">
           <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-            <Link to="/" className="hover:opacity-80 transition-opacity">
+            <Link href="/" className="hover:opacity-80 transition-opacity">
               <Logo size="md" />
             </Link>
 
@@ -41,7 +43,7 @@ export function Navbar() {
               {user ? (
                 <>
                   <Button variant="ghost" size="sm" asChild>
-                    <Link to="/dashboard" className="flex items-center gap-2">
+                    <Link href="/dashboard" className="flex items-center gap-2">
                       <LayoutDashboard className="h-4 w-4" />
                       {t('nav.dashboard')}
                     </Link>
@@ -54,10 +56,10 @@ export function Navbar() {
               ) : (
                 <>
                   <Button variant="ghost" size="sm" asChild>
-                    <Link to="/auth?mode=login">{t('nav.login')}</Link>
+                    <Link href="/auth?mode=login">{t('nav.login')}</Link>
                   </Button>
                   <Button variant="default" size="sm" asChild>
-                    <Link to="/auth?mode=signup">{t('nav.signup')}</Link>
+                    <Link href="/auth?mode=signup">{t('nav.signup')}</Link>
                   </Button>
                 </>
               )}
@@ -86,7 +88,7 @@ export function Navbar() {
               {user ? (
                 <>
                   <Button variant="ghost" size="sm" asChild className="w-full justify-start">
-                    <Link to="/dashboard" className="flex items-center gap-2">
+                    <Link href="/dashboard" className="flex items-center gap-2">
                       <LayoutDashboard className="h-4 w-4" />
                       {t('nav.dashboard')}
                     </Link>
@@ -99,10 +101,10 @@ export function Navbar() {
               ) : (
                 <>
                   <Button variant="ghost" size="sm" asChild className="w-full">
-                    <Link to="/auth?mode=login">{t('nav.login')}</Link>
+                    <Link href="/auth?mode=login">{t('nav.login')}</Link>
                   </Button>
                   <Button variant="default" size="sm" asChild className="w-full">
-                    <Link to="/auth?mode=signup">{t('nav.signup')}</Link>
+                    <Link href="/auth?mode=signup">{t('nav.signup')}</Link>
                   </Button>
                 </>
               )}

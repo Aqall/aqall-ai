@@ -45,6 +45,11 @@ const translations: Record<Language, Record<string, string>> = {
     'auth.submit.signup': 'Create Account',
     'auth.switch.login': 'Already have an account?',
     'auth.switch.signup': "Don't have an account?",
+    'auth.confirm.title': 'Check Your Email',
+    'auth.confirm.message': 'We sent a confirmation link to',
+    'auth.confirm.instructions': 'Please check your inbox and click the link to verify your account. Once verified, you\'ll be automatically signed in.',
+    'auth.confirm.back': 'Back to Login',
+    'auth.confirm.resend': 'Resend Email',
     
     // Dashboard
     'dashboard.title': 'Your Projects',
@@ -122,6 +127,11 @@ const translations: Record<Language, Record<string, string>> = {
     'auth.submit.signup': 'إنشاء حساب',
     'auth.switch.login': 'لديك حساب بالفعل؟',
     'auth.switch.signup': 'ليس لديك حساب؟',
+    'auth.confirm.title': 'تحقق من بريدك الإلكتروني',
+    'auth.confirm.message': 'تم إرسال رابط التحقق إلى',
+    'auth.confirm.instructions': 'يرجى التحقق من بريدك الإلكتروني والنقر على الرابط للتحقق من حسابك. بعد التحقق، سيتم تسجيل دخولك تلقائياً.',
+    'auth.confirm.back': 'العودة لتسجيل الدخول',
+    'auth.confirm.resend': 'إعادة إرسال البريد',
     
     // Dashboard
     'dashboard.title': 'مشاريعك',
@@ -181,8 +191,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    document.documentElement.setAttribute('dir', direction);
-    document.documentElement.setAttribute('lang', language);
+    // Set dir and lang on html element (handled by HtmlDirectionSetter in Next.js)
+    // But we still update localStorage
     localStorage.setItem('aqall-language', language);
   }, [language, direction]);
 

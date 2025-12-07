@@ -1,5 +1,31 @@
-// TODO: Connect real OpenAI pipeline in Cursor
-// This is a mock API that simulates website generation
+/**
+ * ============================================
+ * CURRENTLY MOCKED – to be replaced by Supabase + OpenAI backend
+ * ============================================
+ * 
+ * This file provides mock website generation functionality for MVP Phase 1.
+ * It simulates AI-powered website generation using keyword-based templates.
+ * 
+ * **What this will be replaced with:**
+ * - Next.js API route: `/api/generate` (or `/api/builds/create`)
+ * - OpenAI API integration via server-side "AI Orchestrator"
+ * - File tools (read/write/apply_patch) for generating React/Tailwind components
+ * - Supabase `builds` table for storing generated files and metadata
+ * - Supabase Storage bucket for project assets (images, etc.)
+ * - Real-time build status updates via Supabase Realtime or polling
+ * 
+ * **Migration path:**
+ * 1. Create Next.js API route that accepts prompt + projectId
+ * 2. Call OpenAI API with structured prompts for React/Tailwind generation
+ * 3. Store generated files in Supabase `builds` table (JSONB column)
+ * 4. Store preview HTML in `builds.preview_html` column
+ * 5. Return build result with version number
+ * 
+ * **Dependencies to add:**
+ * - `openai` package for API calls
+ * - `@supabase/supabase-js` for database operations
+ * - Server-side environment variables for API keys
+ */
 
 export interface GeneratedFile {
   path: string;
