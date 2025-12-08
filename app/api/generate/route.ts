@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { generateSiteFromPrompt } from '@/lib/aiOrchestrator';
+import { generateSiteFromPrompt } from '@/lib/pipelineService';
 import { createBuild } from '@/lib/buildService';
 
 export const runtime = 'nodejs';
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate website using AI orchestrator
+    // Generate website using Lovable-style pipeline (Planner → Architect → Coder)
     const result = await generateSiteFromPrompt({
       projectId,
       message: message.trim(),

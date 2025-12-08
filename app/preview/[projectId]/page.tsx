@@ -105,7 +105,7 @@ export default function Preview() {
     if (builds.length > 0) {
       const version = versionParam ? parseInt(versionParam) : builds[0].version;
       if (version && version !== selectedVersion) {
-        setSelectedVersion(version);
+      setSelectedVersion(version);
       }
     } else if (builds.length === 0 && !buildsLoading && project) {
       // No builds found, redirect to build page

@@ -6,212 +6,208 @@ Phase 4 has been completely rebuilt to match Lovable's backend architecture with
 
 ## Architecture
 
+### Pipeline Flow
+
+```
+User Prompt
+    ↓
+Planner Agent (Language Detection + Industry Analysis)
+    ↓
+Architect Agent (File Tasks Generation)
+    ↓
+Coder Agent (File Generation using File Tools)
+    ↓
+Workspace Files → ProjectFiles → Build Storage
+```
+
+## Components
+
 ### 1. Planner Agent (`src/lib/plannerAgent.ts`)
 
-**Purpose**: Analyzes user prompts and creates a generation plan.
+**Responsibilities:**
+- Analyzes user prompt
+- **Automatic language detection** (Arabic/English/Bilingual)
+- Detects industry type
+- Determines required and optional sections
+- Creates generation plan
 
-**Detects**:
-- Industry type (restaurant, portfolio, clinic, SaaS, agency, etc.)
-- Required sections (navbar, hero, about, contact, footer)
-- Optional sections (menu, gallery, testimonials, etc.)
-- Language requirements (Arabic-only, English-only, bilingual)
-- Suggested folder/file structure
-- Required libraries
-- Project name
+**Language Detection Logic:**
+1. **Explicit instructions** (highest priority):
+   - "bilingual", "both languages" → BILINGUAL
+   - "arabic only", "عربي فقط" → ARABIC_ONLY
+   - "english only" → ENGLISH_ONLY
 
-**Output**: `GenerationPlan` object with all detected information.
+2. **Automatic detection** (fallback):
+   - 70%+ Arabic characters → ARABIC_ONLY
+   - Substantial mix (both > 10 chars) → BILINGUAL
+   - Only Arabic → ARABIC_ONLY
+   - Default → ENGLISH_ONLY
+
+**Output:** `GenerationPlan` with industry, sections, languageMode, etc.
 
 ### 2. Architect Agent (`src/lib/architectAgent.ts`)
 
-**Purpose**: Converts the plan into file-level tasks.
+**Responsibilities:**
+- Converts plan to file-level tasks
+- Determines which components to generate
+- Identifies config files needed
+- Specifies translation files (if bilingual)
+- Creates architecture plan
 
-**Determines**:
-- Which components to generate
-- Which config files needed (package.json, vite.config.js, etc.)
-- Which assets needed
-- Translation files if bilingual
-
-**Output**: `ArchitecturePlan` with a list of file tasks.
+**Output:** `ArchitecturePlan` with tasks, components, configFiles, etc.
 
 ### 3. Coder Agent (`src/lib/coderAgent.ts`)
 
-**Purpose**: Generates actual project files using file tools.
+**Responsibilities:**
+- Uses file tools to generate actual files
+- Generates config files (package.json, vite.config.js, etc.)
+- Generates React components
+- Generates entry files (main.jsx, App.jsx, index.css)
+- Generates translation files (if bilingual)
 
-**Uses file tools**:
+**File Tools Used:**
 - `list_files(path?)` - List files in workspace
 - `read_file(path)` - Read file content
 - `write_file(path, content)` - Write/create file
 - `apply_patch(path, diff)` - Apply patch to file
 
-**Generates**:
-- Config files (package.json, vite.config.js, tailwind.config.js, etc.)
-- React components (Navbar, Hero, About, etc.)
-- Entry files (main.jsx, App.jsx, index.css)
-- Translation files (i18n.js, en.json, ar.json) if bilingual
+### 4. Workspace Service (`src/lib/workspaceService.ts`)
 
-## Workspace Service (`src/lib/workspaceService.ts`)
+**Responsibilities:**
+- Manages virtual file system per project
+- Provides file tools interface
+- Converts between workspace format and JSONB storage
+- Handles file operations in-memory during generation
 
-**Purpose**: Manages virtual file system per project.
-
-**Features**:
-- Stores files in Supabase `builds` table as JSONB array
-- Provides file tools interface for agents
-- Handles file operations (read/write/list/patch)
-- Converts between workspace format and ProjectFiles format
-
-**File Format**:
+**File Tools Interface:**
 ```typescript
-interface WorkspaceFile {
-  path: string;
-  content: string;
-  type: 'file' | 'folder';
+interface FileTools {
+  list_files: (path?: string) => Promise<string[]>;
+  read_file: (path: string) => Promise<string | null>;
+  write_file: (path: string, content: string) => Promise<void>;
+  apply_patch: (path: string, diff: string) => Promise<void>;
 }
 ```
 
-## API Route (`app/api/generate/route.ts`)
+### 5. Pipeline Orchestrator (`src/lib/pipelineService.ts`)
 
-**Workflow**:
-1. **Planner Agent**: Analyzes prompt → creates plan
-2. **Architect Agent**: Converts plan → file tasks
-3. **Initialize Workspace**: Creates empty workspace
-4. **Coder Agent**: Generates files using file tools
-5. **Create Build**: Saves workspace to Supabase
-6. **Return Result**: Returns files and metadata
+**Responsibilities:**
+- Orchestrates the entire pipeline
+- Coordinates Planner → Architect → Coder flow
+- Converts workspace files to ProjectFiles format
+- Returns result compatible with buildService
+
+## Generated File Structure
+
+Every generated project includes:
+
+### Required Files:
+- `package.json` - Dependencies and scripts
+- `vite.config.js` - Vite configuration
+- `tailwind.config.js` - Tailwind CSS configuration
+- `postcss.config.js` - PostCSS configuration
+- `index.html` - HTML entry point
+- `src/main.jsx` - React entry point
+- `src/App.jsx` - Main App component
+- `src/index.css` - Global styles and Tailwind imports
+- `src/components/Navbar.jsx` - Navigation component
+- `src/components/Footer.jsx` - Footer component
+- Plus any other requested components
+
+### If Bilingual:
+- `src/i18n.js` - i18n configuration and LanguageProvider
+- `src/locales/en.json` - English translations
+- `src/locales/ar.json` - Arabic translations
+
+## Language Mode Handling
+
+### ARABIC_ONLY
+- Hardcoded Arabic text in components
+- RTL layout (`dir="rtl"`)
+- Arabic fonts (Cairo)
+- No translation files
+
+### ENGLISH_ONLY
+- Hardcoded English text in components
+- LTR layout (`dir="ltr"`)
+- English fonts (Inter, Poppins)
+- No translation files
+
+### BILINGUAL
+- All text from translation files
+- Language toggle in Navbar
+- i18n system with `useLanguage()` hook
+- Dynamic LTR/RTL switching
+- Both English and Arabic fonts
 
 ## Section Generation Logic
 
-### Default Sections (Always Included)
+### User-Specific Sections
+If user requests specific sections (e.g., "hero + about + contact"), only those are generated.
+
+### Default Sections
+If prompt is generic, generates:
 - Navbar
 - Hero
+- About
+- Features
 - Contact
 - Footer
 
 ### Industry-Specific Sections
+- **Restaurant/Cafe**: Menu, Gallery, Testimonials, About
+- **Portfolio**: Gallery, Projects, Skills, About
+- **Medical/Clinic**: Services, Appointment, About
+- **Agency**: Services, Pricing, Portfolio, About
 
-**Restaurant/Cafe**:
-- Menu
-- Gallery
-- Testimonials
-- About
+## API Integration
 
-**Portfolio**:
-- Gallery
-- Projects
-- Skills
-- About
+The pipeline is integrated via `/api/generate` route:
 
-**Medical/Clinic**:
-- Services
-- Appointment
-- About
-
-**Agency**:
-- Services
-- Pricing
-- Portfolio
-- About
-
-### User-Requested Sections
-If user explicitly requests specific sections, only those are generated (plus defaults).
-
-## Language Support
-
-### Arabic-Only
-- Hardcoded Arabic text
-- RTL layout
-- Arabic fonts (Cairo)
-- No translation files
-
-### English-Only
-- Hardcoded English text
-- LTR layout
-- English fonts (Inter, Poppins)
-- No translation files
-
-### Bilingual
-- i18n.js with LanguageProvider
-- en.json and ar.json translation files
-- Language toggle in Navbar
-- Dynamic dir/lang attributes
-
-## File Structure
-
-Every generated project includes:
-
-```
-package.json
-vite.config.js
-tailwind.config.js
-postcss.config.js
-index.html
-src/
-  main.jsx
-  App.jsx
-  index.css
-  components/
-    Navbar.jsx
-    Hero.jsx
-    About.jsx
-    Contact.jsx
-    Footer.jsx
-    (other requested components)
-  i18n.js (if bilingual)
-  locales/
-    en.json (if bilingual)
-    ar.json (if bilingual)
-public/
-  logo.png
+```typescript
+POST /api/generate
+{
+  projectId: string,
+  message: string,
+  history?: Array<{role, content}>
+}
 ```
 
-## UI Quality Standards
+The route:
+1. Calls `generateSiteFromPrompt()` from pipelineService
+2. Creates build with generated files
+3. Returns build result with version, files, previewHtml, etc.
 
-All components follow Lovable's style guide:
+## Quality Standards
 
-- **Large hero text**: `text-4xl md:text-6xl font-bold`
-- **Soft backgrounds**: `bg-gray-50`, `bg-white`
-- **Generous spacing**: `py-20`, `px-6`, `gap-12`
-- **Smooth transitions**: `hover:scale-[1.02]`
-- **Cards**: Shadows and padding
-- **Responsive**: `md:`, `lg:` breakpoints
+All generated components follow Lovable's quality standards:
 
-## Preview System
-
-The preview system (`app/preview/[projectId]/page.tsx`) reads from workspace files:
-- Loads build from Supabase
-- Converts workspace files to ProjectFiles format
-- Generates preview HTML using `generatePreviewHTML()`
-- Renders in iframe with proper sandbox attributes
-
-## ZIP Download
-
-The download route (`app/api/download/[projectId]/route.ts`):
-- Handles both workspace file array format and old object format
-- Creates ZIP from all files in workspace
-- Returns ZIP file for download
+- **Responsive**: Mobile-first with proper breakpoints
+- **Professional**: Clean color palettes, proper spacing
+- **Modern**: Smooth transitions, hover effects, shadows
+- **Accessible**: Proper contrast, semantic HTML
+- **Production-ready**: Valid JSX, no syntax errors
 
 ## Migration Notes
 
 - **Old orchestrator** (`aiOrchestrator.ts`) is deprecated but kept for reference
-- **Build service** handles both old and new file formats for backward compatibility
-- **Preview system** works with both formats automatically
+- All new generation uses the pipeline
+- Preview HTML generation works with new file structure
+- Build storage remains compatible (ProjectFiles format)
 
 ## Testing
 
 To test the new pipeline:
 
-1. Create a new project
-2. Send a prompt like: "Make me a coffee shop website"
-3. The system will:
-   - Detect industry: coffee shop
-   - Generate sections: navbar, hero, menu, gallery, testimonials, about, contact, footer
-   - Create all required files
-   - Save to workspace
-   - Generate preview
+1. Submit a prompt via `/api/generate`
+2. Check console logs for pipeline steps
+3. Verify generated files in build storage
+4. Preview should render correctly
+5. ZIP download should include all files
 
 ## Future Enhancements
 
-- Real-time build status updates
-- Incremental file updates (apply_patch)
-- Build history and versioning
-- File diff visualization
-- Component library templates
+- File regeneration cycles (read existing, apply patches)
+- Iterative improvements based on user feedback
+- Component-level regeneration
+- Advanced diff/patch support

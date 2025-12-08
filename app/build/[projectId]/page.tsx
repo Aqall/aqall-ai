@@ -106,6 +106,15 @@ export default function BuildChat() {
   // Reconstruct messages from builds
   useEffect(() => {
     if (builds.length > 0) {
+      // Only update if builds actually changed (by comparing build IDs)
+      const currentBuildIds = builds.map(b => b.id).join(',');
+      const existingBuildIds = messages
+        .filter(m => m.buildVersion)
+        .map(m => `assistant-${m.buildVersion}`)
+        .join(',');
+      
+      // Only reconstruct if builds changed
+      if (currentBuildIds !== existingBuildIds) {
       const reconstructedMessages: ChatMessage[] = [];
       builds.forEach(build => {
         reconstructedMessages.push({
@@ -125,15 +134,20 @@ export default function BuildChat() {
         });
       });
       setMessages(reconstructedMessages);
-      if (builds.length > 0) {
+        if (builds.length > 0 && selectedVersion !== builds[0].version) {
         setSelectedVersion(builds[0].version); // Latest version
+      }
       }
     } else {
       // Clear messages if no builds
-      setMessages([]);
-      setSelectedVersion(null);
+      if (messages.length > 0) {
+        setMessages([]);
+      }
+      if (selectedVersion !== null) {
+        setSelectedVersion(null);
+      }
     }
-  }, [builds, direction]);
+  }, [builds]); // Remove direction from dependencies to prevent infinite loop
 
   // Redirect if project not found
   useEffect(() => {
