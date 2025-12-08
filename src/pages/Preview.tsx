@@ -1,14 +1,10 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
-import { getProjectById } from '@/lib/projectService';
-import { getBuildByVersion, getBuildsByProject } from '@/lib/buildService';
+import { getProject, Project } from '@/lib/projectStore';
+import { downloadProjectAsZip, BuildResult } from '@/lib/mockApi';
 import { 
   ArrowLeft, 
   Download, 
@@ -18,6 +14,7 @@ import {
   Monitor,
   Tablet,
   Smartphone,
+  ExternalLink,
   MessageSquare
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
@@ -39,15 +36,15 @@ const viewportSizes: Record<ViewportSize, { width: string; icon: React.ElementTy
 };
 
 export default function Preview() {
-  const params = useParams();
-  const projectId = params.projectId as string;
-  const searchParams = useSearchParams();
+  const { projectId } = useParams<{ projectId: string }>();
+  const [searchParams] = useSearchParams();
   const versionParam = searchParams.get('version');
   
   const { user, isLoading: authLoading } = useAuth();
   const { t, direction } = useLanguage();
-  const router = useRouter();
+  const navigate = useNavigate();
   
+  const [project, setProject] = useState<Project | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<number>(1);
   const [viewport, setViewport] = useState<ViewportSize>('desktop');
   const [isDownloading, setIsDownloading] = useState(false);
@@ -55,116 +52,49 @@ export default function Preview() {
   // Auth check
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth?mode=login');
+      navigate('/auth?mode=login');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, navigate]);
 
-  // Load project from Supabase
-  const {
-    data: project,
-    isLoading: projectLoading,
-    error: projectError,
-  } = useQuery({
-    queryKey: ['project', projectId, user?.id],
-    queryFn: async () => {
-      if (!user || !projectId) throw new Error('User or project ID missing');
-      const supabaseProject = await getProjectById(user.id, projectId);
-      if (!supabaseProject) {
-        throw new Error('Project not found');
-      }
-      return supabaseProject;
-    },
-    enabled: !!user && !!projectId,
-    refetchOnMount: true,
-  });
-
-  // Load builds from Supabase
-  const {
-    data: builds = [],
-    isLoading: buildsLoading,
-  } = useQuery({
-    queryKey: ['builds', projectId],
-    queryFn: () => getBuildsByProject(projectId),
-    enabled: !!projectId,
-    refetchOnMount: true,
-  });
-
-  // Load specific build by version
-  const {
-    data: currentBuild,
-    isLoading: buildLoading,
-  } = useQuery({
-    queryKey: ['build', projectId, selectedVersion],
-    queryFn: () => getBuildByVersion(projectId, selectedVersion),
-    enabled: !!projectId && !!selectedVersion,
-    refetchOnMount: true,
-  });
-
-  // Set initial version from URL param or latest
+  // Load project
   useEffect(() => {
-    if (builds.length > 0) {
-      const version = versionParam ? parseInt(versionParam) : builds[0].version;
-      if (version && version !== selectedVersion) {
+    if (projectId) {
+      const loadedProject = getProject(projectId);
+      if (loadedProject && loadedProject.builds.length > 0) {
+        setProject(loadedProject);
+        const version = versionParam ? parseInt(versionParam) : loadedProject.builds.length;
         setSelectedVersion(version);
+      } else {
+        navigate('/dashboard');
       }
-    } else if (builds.length === 0 && !buildsLoading && project) {
-      // No builds found, redirect to build page
-      router.push(`/build/${projectId}`);
     }
-  }, [builds, versionParam, buildsLoading, projectId, router, project, selectedVersion]);
+  }, [projectId, versionParam, navigate]);
 
-  // Redirect if project not found
-  useEffect(() => {
-    if (projectError && !projectLoading) {
-      router.push('/dashboard');
-    }
-  }, [projectError, projectLoading, router]);
+  const getCurrentBuild = (): BuildResult | undefined => {
+    if (!project) return undefined;
+    return project.builds.find(b => b.version === selectedVersion);
+  };
 
-  const handleDownload = async () => {
-    if (!currentBuild || !project) return;
+  const handleDownload = () => {
+    const build = getCurrentBuild();
+    if (!build || !project) return;
 
     setIsDownloading(true);
     
-    try {
-      // Download ZIP from API
-      const response = await fetch(`/api/download/${projectId}?version=${selectedVersion}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to download project');
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${project.name}-v${currentBuild.version}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
+    // Simulate download delay
+    setTimeout(() => {
+      downloadProjectAsZip(build.files, project.name);
+      setIsDownloading(false);
       toast({
         title: direction === 'rtl' ? 'تم التحميل' : 'Downloaded',
         description: direction === 'rtl' 
           ? 'تم تحميل المشروع بنجاح'
           : 'Project downloaded successfully',
       });
-    } catch (error) {
-      console.error('Download error:', error);
-      toast({
-        title: direction === 'rtl' ? 'خطأ' : 'Error',
-        description: direction === 'rtl' 
-          ? 'فشل في تحميل المشروع'
-          : 'Failed to download project',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDownloading(false);
-    }
+    }, 500);
   };
 
-  // Show loading only if auth is loading
-  if (authLoading) {
+  if (authLoading || !project) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -172,23 +102,16 @@ export default function Preview() {
     );
   }
 
-  // Show loading overlay if project/builds are still loading
-  if (projectLoading || buildsLoading || buildLoading || !project) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const currentBuild = getCurrentBuild();
 
-  if (!currentBuild || !currentBuild.preview_html) {
+  if (!currentBuild) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <p className="text-muted-foreground mb-4">
             {direction === 'rtl' ? 'الإصدار غير موجود' : 'Version not found'}
           </p>
-          <Button onClick={() => router.push(`/build/${projectId}`)}>
+          <Button onClick={() => navigate(`/build/${projectId}`)}>
             {t('preview.back')}
           </Button>
         </div>
@@ -201,7 +124,7 @@ export default function Preview() {
       {/* Header */}
       <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6">
         <div className="flex items-center gap-4">
-          <Link href={`/build/${projectId}`} className="p-2 rounded-lg hover:bg-secondary transition-colors">
+          <Link to={`/build/${projectId}`} className="p-2 rounded-lg hover:bg-secondary transition-colors">
             <ArrowLeft className={`h-5 w-5 ${direction === 'rtl' ? 'rotate-180' : ''}`} />
           </Link>
           <Logo size="sm" />
@@ -246,7 +169,7 @@ export default function Preview() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {builds.map((build) => (
+              {project.builds.map((build) => (
                 <DropdownMenuItem 
                   key={build.id}
                   onClick={() => setSelectedVersion(build.version)}
@@ -261,7 +184,7 @@ export default function Preview() {
           </DropdownMenu>
 
           <Button variant="soft" size="sm" asChild>
-            <Link href={`/build/${projectId}`} className="flex items-center gap-2">
+            <Link to={`/build/${projectId}`} className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               {t('preview.back')}
             </Link>
@@ -297,10 +220,10 @@ export default function Preview() {
           }}
         >
           <iframe
-            srcDoc={currentBuild.preview_html || ''}
+            srcDoc={currentBuild.previewHtml}
             title="Website Preview"
             className="w-full h-full border-0"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-top-navigation-by-user-activation"
+            sandbox="allow-scripts"
           />
         </div>
       </main>

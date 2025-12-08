@@ -1,17 +1,14 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { listProjects, createProject, deleteProject } from '@/lib/projectService';
-import { Plus, Folder, Clock, Trash2, Loader2, FolderOpen, Sparkles } from 'lucide-react';
+import { getUserProjects, createProject, deleteProject, Project } from '@/lib/projectStore';
+import { Plus, Folder, Clock, Layers, Trash2, Loader2, FolderOpen, Sparkles } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -38,112 +35,57 @@ const staggerContainer = {
 
 export default function Dashboard() {
   const { user, isLoading: authLoading } = useAuth();
-  const { t, language } = useLanguage();
-  const router = useRouter();
-  const queryClient = useQueryClient();
+  const { t, direction, language } = useLanguage();
+  const navigate = useNavigate();
   
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [authTimeout, setAuthTimeout] = useState(false);
-
-  // Timeout for auth loading (prevent infinite loading)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (authLoading) {
-        console.warn('Auth loading timeout - proceeding anyway');
-        setAuthTimeout(true);
-      }
-    }, 5000); // 5 second timeout
-
-    return () => clearTimeout(timer);
-  }, [authLoading]);
 
   // Redirect if not logged in
   useEffect(() => {
-    if ((!authLoading || authTimeout) && !user) {
-      router.push('/auth?mode=login');
+    if (!authLoading && !user) {
+      navigate('/auth?mode=login');
     }
-  }, [user, authLoading, authTimeout, router]);
+  }, [user, authLoading, navigate]);
 
-  // Fetch projects using React Query
-  const {
-    data: projects = [],
-    isLoading: projectsLoading,
-    error: projectsError,
-  } = useQuery({
-    queryKey: ['projects', user?.id],
-    queryFn: () => {
-      if (!user) throw new Error('User not authenticated');
-      return listProjects(user.id);
-    },
-    enabled: !!user && (!authLoading || authTimeout), // Enable query even if auth is loading after timeout
-    refetchOnMount: true,
-    retry: 2,
-    retryDelay: 1000,
-  });
-
-  // Create project mutation
-  const createMutation = useMutation({
-    mutationFn: async (name: string) => {
-      if (!user) throw new Error('User not authenticated');
-      return createProject(user.id, { name });
-    },
-    onSuccess: (project) => {
-      queryClient.invalidateQueries({ queryKey: ['projects', user?.id] });
-      setNewProjectName('');
-      setDialogOpen(false);
-      
-      toast({
-        title: language === 'ar' ? 'تم إنشاء المشروع' : 'Project created',
-        description: language === 'ar' ? 'يمكنك البدء في البناء الآن' : 'You can start building now',
-      });
-
-      // Navigate to the build page
-      router.push(`/build/${project.id}`);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: error.message || (language === 'ar' ? 'فشل في إنشاء المشروع' : 'Failed to create project'),
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Delete project mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (projectId: string) => {
-      if (!user) throw new Error('User not authenticated');
-      return deleteProject(user.id, projectId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects', user?.id] });
-      toast({
-        title: language === 'ar' ? 'تم حذف المشروع' : 'Project deleted',
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: error.message || (language === 'ar' ? 'فشل في حذف المشروع' : 'Failed to delete project'),
-        variant: 'destructive',
-      });
-    },
-  });
+  // Load projects
+  useEffect(() => {
+    if (user) {
+      const userProjects = getUserProjects(user.id);
+      setProjects(userProjects);
+    }
+  }, [user]);
 
   const handleCreateProject = () => {
     if (!newProjectName.trim() || !user) return;
-    createMutation.mutate(newProjectName.trim());
+    
+    setIsCreating(true);
+    const project = createProject(user.id, newProjectName.trim());
+    setProjects(prev => [...prev, project]);
+    setNewProjectName('');
+    setDialogOpen(false);
+    setIsCreating(false);
+    
+    toast({
+      title: language === 'ar' ? 'تم إنشاء المشروع' : 'Project created',
+      description: language === 'ar' ? 'يمكنك البدء في البناء الآن' : 'You can start building now',
+    });
+
+    // Navigate to the build page
+    navigate(`/build/${project.id}`);
   };
 
   const handleDeleteProject = (projectId: string) => {
-    if (confirm(language === 'ar' ? 'هل أنت متأكد من حذف هذا المشروع؟' : 'Are you sure you want to delete this project?')) {
-      deleteMutation.mutate(projectId);
-    }
+    deleteProject(projectId);
+    setProjects(prev => prev.filter(p => p.id !== projectId));
+    toast({
+      title: language === 'ar' ? 'تم حذف المشروع' : 'Project deleted',
+    });
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat(language === 'ar' ? 'ar' : 'en', {
       day: 'numeric',
       month: 'short',
@@ -151,9 +93,7 @@ export default function Dashboard() {
     }).format(date);
   };
 
-  // Show loading only if auth is loading and not timed out
-  // Don't block on projectsLoading to allow navigation
-  if (authLoading && !authTimeout && !user) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -161,26 +101,10 @@ export default function Dashboard() {
     );
   }
 
-  // If we have a user but auth is still loading, show content anyway
-  // This prevents the page from being stuck in loading state
-
-  if (projectsError) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-destructive mb-4">
-            {language === 'ar' ? 'حدث خطأ في تحميل المشاريع' : 'Failed to load projects'}
-          </p>
-          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['projects', user?.id] })}>
-            {language === 'ar' ? 'إعادة المحاولة' : 'Retry'}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-mesh">
+      <Navbar />
+
       <main className="pt-28 pb-16 px-6">
         <div className="container mx-auto max-w-6xl">
           {/* Header */}
@@ -227,8 +151,8 @@ export default function Dashboard() {
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>
                     {language === 'ar' ? 'إلغاء' : 'Cancel'}
                   </Button>
-                  <Button onClick={handleCreateProject} disabled={!newProjectName.trim() || createMutation.isPending}>
-                    {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : (language === 'ar' ? 'إنشاء' : 'Create')}
+                  <Button onClick={handleCreateProject} disabled={!newProjectName.trim() || isCreating}>
+                    {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : (language === 'ar' ? 'إنشاء' : 'Create')}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -236,11 +160,7 @@ export default function Dashboard() {
           </motion.div>
 
           {/* Projects Grid */}
-          {projectsLoading && projects.length === 0 ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : projects.length === 0 ? (
+          {projects.length === 0 ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -273,8 +193,8 @@ export default function Dashboard() {
             >
               {projects.map((project) => (
                 <motion.div key={project.id} variants={fadeInUp}>
-                  <Card className="group overflow-hidden hover:shadow-elevated transition-all">
-                    <Link href={`/build/${project.id}`}>
+                  <Card hover className="group overflow-hidden">
+                    <Link to={`/build/${project.id}`}>
                       <CardHeader className="pb-4">
                         <div className="flex items-start justify-between">
                           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary-light/20 flex items-center justify-center group-hover:from-primary group-hover:to-primary-light transition-all duration-300">
@@ -295,9 +215,12 @@ export default function Dashboard() {
                         <CardDescription className="flex items-center gap-4 mt-2">
                           <span className="flex items-center gap-1.5">
                             <Clock className="h-3.5 w-3.5" />
-                            {formatDate(project.updated_at)}
+                            {formatDate(project.updatedAt)}
                           </span>
-                          {/* TODO: Add builds count when builds table is integrated */}
+                          <span className="flex items-center gap-1.5">
+                            <Layers className="h-3.5 w-3.5" />
+                            {project.builds.length} {t('dashboard.project.versions')}
+                          </span>
                         </CardDescription>
                       </CardHeader>
                     </Link>

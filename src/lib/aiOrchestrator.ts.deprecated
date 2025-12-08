@@ -1,0 +1,16 @@
+/**
+ * @deprecated This file is deprecated. Use the new Lovable-style pipeline:
+ * - plannerAgent.ts (Planner Agent)
+ * - architectAgent.ts (Architect Agent)  
+ * - coderAgent.ts (Coder Agent)
+ * - workspaceService.ts (File tools)
+ * 
+ * The new pipeline provides:
+ * - Better structure (Planner → Architect → Coder)
+ * - File-based workspace system
+ * - Real file tools (read/write/apply_patch)
+ * - Industry-aware section generation
+ * - Better quality components
+ * 
+ * This file is kept for reference but should not be used in new code.
+ */

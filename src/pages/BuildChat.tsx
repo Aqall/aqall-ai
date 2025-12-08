@@ -1,22 +1,20 @@
-'use client';
-
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { getProjectById } from '@/lib/projectService';
-import { getBuildsByProject } from '@/lib/buildService';
+import { getProject, addBuildToProject, Project } from '@/lib/projectStore';
+import { generateWebsite, BuildResult } from '@/lib/mockApi';
 import { 
   ArrowLeft, 
   Send, 
   Loader2, 
   Sparkles, 
   Eye, 
+  Download,
   Clock,
   ChevronDown,
   User
@@ -34,30 +32,17 @@ interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  buildVersion?: number;
+  buildResult?: BuildResult;
   timestamp: Date;
 }
 
-interface BuildResponse {
-  success: boolean;
-  projectId: string;
-  version: number;
-  files?: Record<string, string>;
-  summary: string;
-  languageMode?: 'arabic-only' | 'english-only' | 'bilingual';
-  sections?: string[];
-  previewHtml: string;
-  createdAt: string;
-}
-
 export default function BuildChat() {
-  const params = useParams();
-  const projectId = params.projectId as string;
+  const { projectId } = useParams<{ projectId: string }>();
   const { user, isLoading: authLoading } = useAuth();
   const { t, direction } = useLanguage();
-  const router = useRouter();
-  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   
+  const [project, setProject] = useState<Project | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -69,78 +54,44 @@ export default function BuildChat() {
   // Auth check
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push('/auth?mode=login');
+      navigate('/auth?mode=login');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, navigate]);
 
-  // Load project from Supabase
-  const {
-    data: project,
-    isLoading: projectLoading,
-    error: projectError,
-  } = useQuery({
-    queryKey: ['project', projectId, user?.id],
-    queryFn: async () => {
-      if (!user || !projectId) throw new Error('User or project ID missing');
-      const supabaseProject = await getProjectById(user.id, projectId);
-      if (!supabaseProject) {
-        throw new Error('Project not found');
-      }
-      return supabaseProject;
-    },
-    enabled: !!user && !!projectId,
-    refetchOnMount: true,
-  });
-
-  // Load builds from Supabase
-  const {
-    data: builds = [],
-    isLoading: buildsLoading,
-  } = useQuery({
-    queryKey: ['builds', projectId],
-    queryFn: () => getBuildsByProject(projectId),
-    enabled: !!projectId,
-    refetchOnMount: true,
-  });
-
-  // Reconstruct messages from builds
+  // Load project
   useEffect(() => {
-    if (builds.length > 0) {
-      const reconstructedMessages: ChatMessage[] = [];
-      builds.forEach(build => {
-        reconstructedMessages.push({
-          id: `user-${build.id}`,
-          role: 'user',
-          content: build.prompt,
-          timestamp: new Date(build.created_at),
+    if (projectId) {
+      const loadedProject = getProject(projectId);
+      if (loadedProject) {
+        setProject(loadedProject);
+        // Reconstruct messages from builds
+        const reconstructedMessages: ChatMessage[] = [];
+        loadedProject.builds.forEach(build => {
+          reconstructedMessages.push({
+            id: `user-${build.id}`,
+            role: 'user',
+            content: build.prompt,
+            timestamp: build.timestamp,
+          });
+          reconstructedMessages.push({
+            id: `assistant-${build.id}`,
+            role: 'assistant',
+            content: direction === 'rtl' 
+              ? `تم إنشاء موقعك بنجاح! (الإصدار ${build.version})` 
+              : `Your website has been generated! (Version ${build.version})`,
+            buildResult: build,
+            timestamp: build.timestamp,
+          });
         });
-        reconstructedMessages.push({
-          id: `assistant-${build.id}`,
-          role: 'assistant',
-          content: direction === 'rtl' 
-            ? `تم إنشاء موقعك بنجاح! (الإصدار ${build.version})` 
-            : `Your website has been generated! (Version ${build.version})`,
-          buildVersion: build.version,
-          timestamp: new Date(build.created_at),
-        });
-      });
-      setMessages(reconstructedMessages);
-      if (builds.length > 0) {
-        setSelectedVersion(builds[0].version); // Latest version
+        setMessages(reconstructedMessages);
+        if (loadedProject.builds.length > 0) {
+          setSelectedVersion(loadedProject.builds.length);
+        }
+      } else {
+        navigate('/dashboard');
       }
-    } else {
-      // Clear messages if no builds
-      setMessages([]);
-      setSelectedVersion(null);
     }
-  }, [builds, direction]);
-
-  // Redirect if project not found
-  useEffect(() => {
-    if (projectError && !projectLoading) {
-      router.push('/dashboard');
-    }
-  }, [projectError, projectLoading, router]);
+  }, [projectId, navigate, direction]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -160,68 +111,42 @@ export default function BuildChat() {
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const messageContent = inputValue.trim();
     setInputValue('');
     setIsGenerating(true);
 
     try {
-      // Build history from previous messages
-      const history = messages
-        .filter(msg => msg.role === 'user' || msg.role === 'assistant')
-        .map(msg => ({
-          role: msg.role,
-          content: msg.content,
-        }));
-
-      // Call API endpoint
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          projectId: project.id,
-          message: messageContent,
-          history,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Failed to generate website');
+      const currentVersion = project.builds.length;
+      const buildResult = await generateWebsite(userMessage.content, project.id, currentVersion);
+      
+      // Update project with new build
+      const updatedProject = addBuildToProject(project.id, buildResult);
+      if (updatedProject) {
+        setProject(updatedProject);
       }
-
-      const buildResponse: BuildResponse = await response.json();
-
-      // Invalidate builds query to refetch
-      queryClient.invalidateQueries({ queryKey: ['builds', projectId] });
 
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: direction === 'rtl' 
-          ? `تم إنشاء موقعك بنجاح! (الإصدار ${buildResponse.version})` 
-          : `Your website has been generated! (Version ${buildResponse.version})`,
-        buildVersion: buildResponse.version,
-        timestamp: new Date(buildResponse.createdAt),
+          ? `تم إنشاء موقعك بنجاح! (الإصدار ${buildResult.version})` 
+          : `Your website has been generated! (Version ${buildResult.version})`,
+        buildResult,
+        timestamp: new Date(),
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-      setSelectedVersion(buildResponse.version);
+      setSelectedVersion(buildResult.version);
 
       toast({
         title: direction === 'rtl' ? 'تم الإنشاء' : 'Generated',
         description: direction === 'rtl' 
-          ? `تم إنشاء الإصدار ${buildResponse.version} بنجاح`
-          : `Version ${buildResponse.version} created successfully`,
+          ? `تم إنشاء الإصدار ${buildResult.version} بنجاح`
+          : `Version ${buildResult.version} created successfully`,
       });
     } catch (error) {
-      console.error('Generation error:', error);
       toast({
         title: direction === 'rtl' ? 'خطأ' : 'Error',
-        description: error instanceof Error 
-          ? error.message 
-          : (direction === 'rtl' ? 'فشل في إنشاء الموقع' : 'Failed to generate website'),
+        description: direction === 'rtl' ? 'فشل في إنشاء الموقع' : 'Failed to generate website',
         variant: 'destructive',
       });
     } finally {
@@ -230,8 +155,12 @@ export default function BuildChat() {
     }
   };
 
-  // Show loading only if auth is loading
-  if (authLoading) {
+  const getCurrentBuild = (): BuildResult | undefined => {
+    if (!project || !selectedVersion) return undefined;
+    return project.builds.find(b => b.version === selectedVersion);
+  };
+
+  if (authLoading || !project) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -239,23 +168,18 @@ export default function BuildChat() {
     );
   }
 
-  // Show loading overlay if project is still loading
-  if (projectLoading || buildsLoading || !project) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const currentBuild = getCurrentBuild();
 
   return (
-    <div className="min-h-screen bg-gradient-soft flex flex-col pt-20">
+    <div className="min-h-screen bg-gradient-soft flex flex-col">
+      <Navbar />
+
       {/* Header */}
-      <header className="py-4 px-6 border-b border-border bg-background/80 backdrop-blur-md sticky top-20 z-40">
+      <header className="pt-20 pb-4 px-6 border-b border-border bg-background/80 backdrop-blur-md sticky top-16 z-40">
         <div className="container mx-auto max-w-6xl flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link 
-              href="/dashboard" 
+              to="/dashboard" 
               className="p-2 rounded-lg hover:bg-secondary transition-colors"
             >
               <ArrowLeft className={`h-5 w-5 ${direction === 'rtl' ? 'rotate-180' : ''}`} />
@@ -263,13 +187,13 @@ export default function BuildChat() {
             <div>
               <h1 className="text-xl font-bold">{project.name}</h1>
               <p className="text-sm text-muted-foreground">
-                {builds.length} {t('dashboard.project.versions')}
+                {project.builds.length} {t('dashboard.project.versions')}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {builds.length > 0 && (
+            {project.builds.length > 0 && (
               <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -280,7 +204,7 @@ export default function BuildChat() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {builds.map((build) => (
+                    {project.builds.map((build) => (
                       <DropdownMenuItem 
                         key={build.id}
                         onClick={() => setSelectedVersion(build.version)}
@@ -295,7 +219,7 @@ export default function BuildChat() {
                 </DropdownMenu>
 
                 <Button variant="soft" asChild>
-                  <Link href={`/preview/${project.id}?version=${selectedVersion}`} className="flex items-center gap-2">
+                  <Link to={`/preview/${project.id}?version=${selectedVersion}`} className="flex items-center gap-2">
                     <Eye className="h-4 w-4" />
                     {t('build.preview')}
                   </Link>
@@ -307,10 +231,10 @@ export default function BuildChat() {
       </header>
 
       {/* Chat Area */}
-      <main className="flex-1 container mx-auto max-w-4xl px-6 py-6">
+      <main className="flex-1 container mx-auto max-w-4xl px-6 py-8">
         <div 
           ref={chatContainerRef}
-          className="space-y-6 min-h-[calc(100vh-24rem)] max-h-[calc(100vh-24rem)] overflow-y-auto pb-4"
+          className="space-y-6 min-h-[calc(100vh-20rem)] max-h-[calc(100vh-20rem)] overflow-y-auto pb-4"
         >
           {messages.length === 0 ? (
             <div className="text-center py-20">
@@ -361,14 +285,16 @@ export default function BuildChat() {
                   )}>
                     <p className="text-sm">{message.content}</p>
                     
-                    {message.buildVersion && (
+                    {message.buildResult && (
                       <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{t('preview.version')} {message.buildVersion}</span>
+                          <span>{message.buildResult.files.filter(f => f.type === 'file').length} {direction === 'rtl' ? 'ملف' : 'files'}</span>
+                          <span>•</span>
+                          <span>{t('preview.version')} {message.buildResult.version}</span>
                         </div>
                         <div className="flex gap-2">
                           <Button size="sm" variant="soft" asChild className="flex-1">
-                            <Link href={`/preview/${project.id}?version=${message.buildVersion}`}>
+                            <Link to={`/preview/${project.id}?version=${message.buildResult.version}`}>
                               <Eye className="h-3.5 w-3.5 me-1.5" />
                               {t('build.preview')}
                             </Link>

@@ -11,7 +11,17 @@ import { useState } from 'react';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Create QueryClient inside component to avoid sharing between requests
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
+        refetchOnMount: true, // Always refetch on mount
+        refetchOnWindowFocus: false, // Don't refetch on window focus
+        retry: 1,
+      },
+    },
+  }));
   
   return (
     <QueryClientProvider client={queryClient}>
