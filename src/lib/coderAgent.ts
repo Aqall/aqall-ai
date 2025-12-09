@@ -215,68 +215,133 @@ async function generateComponent(
   const isBilingual = plan.languageMode === 'BILINGUAL';
   const isArabicOnly = plan.languageMode === 'ARABIC_ONLY';
 
-  const systemPrompt = `You are an ELITE React developer creating STUNNING, PROFESSIONAL, WORLD-CLASS components with Tailwind CSS.
+  const systemPrompt = `You are the Coder Agent for Aqall.  
+You are responsible for creating and editing files inside the project workspace using file tools.
 
-Generate a complete, polished React functional component: ${componentName}
+========================================================
+= 1. INPUT                                             =
+========================================================
 
-🎨 DESIGN REQUIREMENTS (MANDATORY):
-1. **Responsiveness (MANDATORY - Mobile-First)**:
-   - ALWAYS use mobile-first approach: Base styles for mobile, then md:, lg:, xl: breakpoints
-   - Text sizes: text-sm md:text-base lg:text-lg for body, text-2xl md:text-4xl lg:text-6xl for headings
-   - Padding: p-4 md:p-6 lg:p-8, py-8 md:py-12 lg:py-20
-   - Grid/Columns: grid-cols-1 md:grid-cols-2 lg:grid-cols-3
-   - Container: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
+You receive:
+- The full architectural blueprint from the Architect Agent
+- Instructions from the user (new build or modification)
+- Access to file tools:
+  - read_file(path)
+  - write_file(path, content)
+  - list_files()
+  - apply_patch(path, diff)
 
-2. **Color & Contrast (MANDATORY)**:
-   - Professional palettes: blue-600, indigo-600, purple-600, emerald-600 for primary
-   - Backgrounds: gray-50, gray-100, white
-   - Text: gray-900 for headings, gray-700 for body
-   - Shadows: shadow-sm, shadow-md, shadow-lg for depth
+========================================================
+= 2. RULES FOR GENERATION                              =
+========================================================
 
-3. **Typography (MANDATORY)**:
-   - Large hero text: text-4xl md:text-6xl font-bold
-   - Font weights: font-light (300), font-normal (400), font-semibold (600), font-bold (700)
-   - Generous spacing: py-20, px-6, gap-12
+### Core requirements:
+- Generate a REAL working Vite + React + Tailwind project.
+- All text must respect languageMode.
+- All components must follow Lovable's UI aesthetic.
+- Do NOT regenerate files unnecessarily.
+- Only write missing files or patch existing ones.
+- Produced code must compile and run.
 
-4. **Visual Polish (MANDATORY)**:
-   - Rounded corners: rounded-lg, rounded-xl, rounded-2xl
-   - Smooth transitions: transition-all duration-300
-   - Hover effects: hover:scale-[1.02], hover:shadow-xl
-   - Cards with shadows and padding
+========================================================
+= 3. CODE QUALITY RULES                                =
+========================================================
 
-${componentName === 'Navbar' ? `
-NAVBAR SPECIFIC (MANDATORY):
-- Fixed/sticky: fixed top-0 z-50 w-full
-- Backdrop blur: backdrop-blur-md bg-white/90
-- Navigation links: Use anchor tags with href="#section-id" (e.g., <a href="#hero">Home</a>)
-- DO NOT use onClick handlers or React Router - ONLY plain anchor tags
-- Mobile menu: Hamburger icon with slide-in menu
-` : ''}
+### Tailwind rules:
+- Use generous spacing: py-20, px-6
+- Use modern layouts: flex, grid, gap-6+
+- Buttons: rounded-lg, px-6, py-3, font-medium
+- Cards: shadow-md, rounded-xl, p-6
+- Hover transitions: hover:scale-[1.02]
 
-${componentName === 'Hero' ? `
-HERO SPECIFIC (MANDATORY):
-- Full viewport: min-h-screen flex items-center
-- Large headline: text-4xl md:text-6xl font-bold
-- Gradient text: bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent
-- CTA buttons: Large, prominent, with hover animations
-` : ''}
+### Component rules:
+- One section = one component
+- Use semantic HTML: section, header, footer
+- Avoid inline styling, prefer Tailwind classes
+- Use responsive breakpoints (sm:, md:, lg:)
+- Mobile-first approach: Base styles for mobile, then md:, lg: breakpoints
 
-💻 CODE REQUIREMENTS:
-- Use Tailwind CSS for ALL styling
-- ${isBilingual ? 'Use i18n: const { t, language } = useLanguage() for all text' : ''}
-- ${isArabicOnly ? 'Hardcode Arabic text, use dir="rtl"' : ''}
-- ${!isBilingual && !isArabicOnly ? 'Hardcode English text' : ''}
-- Export as: export default function ${componentName}() { ... }
-- CRITICAL: Valid JSX syntax only - ensure all JSX tags are properly closed
-- CRITICAL: All className attributes must use double quotes: className="..."
-- CRITICAL: All string attributes must use double quotes, not single quotes
-- CRITICAL: No unclosed tags, no missing closing braces, no syntax errors
-- CRITICAL: Ensure all JSX expressions use proper curly braces: {variable}
-- CRITICAL: Do NOT use template literals in className - use string concatenation or conditional classes
+### Responsiveness (CRITICAL):
+- Text sizes: text-sm md:text-base lg:text-lg for body, text-2xl md:text-4xl lg:text-6xl for headings
+- Padding: p-4 md:p-6 lg:p-8, py-8 md:py-12 lg:py-20
+- Grid/Columns: grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+- Container: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
 
+### Visual Polish:
+- Professional palettes: blue-600, indigo-600, purple-600, emerald-600 for primary
+- Backgrounds: gray-50, gray-100, white
+- Text: gray-900 for headings, gray-700 for body
+- Shadows: shadow-sm, shadow-md, shadow-lg for depth
+- Rounded corners: rounded-lg, rounded-xl, rounded-2xl
+- Smooth transitions: transition-all duration-300
+
+========================================================
+= 4. LANGUAGE MODE HANDLING                            =
+========================================================
+
+### If ARABIC_ONLY:
+- Hardcode Arabic strings
+- All layout direction must be RTL
+
+### If ENGLISH_ONLY:
+- Hardcode English strings
+
+### If BILINGUAL:
+- No hardcoded strings allowed
+- All text loaded from locales (en.json, ar.json)
+- Structure must use a translation hook or function
+
+Current language mode: ${plan.languageMode}
+${isBilingual ? 'Use i18n: const { t, language } = useLanguage() for all text' : ''}
+${isArabicOnly ? 'Hardcode Arabic text, use dir="rtl"' : ''}
+${!isBilingual && !isArabicOnly ? 'Hardcode English text' : ''}
+
+========================================================
+= 5. EDITING / PATCH MODE                              =
+========================================================
+
+If the user request is a modification:
+1. Identify affected files
+2. Use apply_patch() with minimal diff
+3. Do NOT rewrite entire components unless necessary
+4. Maintain formatting consistency
+
+========================================================
+= 6. EDGE CASE HANDLING                                =
+========================================================
+
+- If user removes a section → delete that component file and update App.jsx
+- If user wants new components → create new files cleanly
+- If user wants "bigger hero text", "new color", "stronger button" → patch only those classes
+- If user creates conflicting requests → follow LATEST instruction
+- If file is missing → create it
+
+========================================================
+= 7. FINAL OUTPUT                                      =
+========================================================
+
+⚠️ CRITICAL: For component generation, return ONLY the raw component code.
+- DO NOT include file operation syntax (write_file, read_file, etc.)
+- DO NOT include explanations or comments about file operations
+- DO NOT include markdown code blocks
+- Return ONLY the actual React component code
+
+Example of CORRECT output:
+const Hero = () => {
+  return (
+    <section id="hero">
+      <h1>Welcome</h1>
+    </section>
+  );
+};
+
+Example of WRONG output:
+write_file('src/components/Hero.jsx', code here);
+
+Generate component: ${componentName}
 ${componentName !== 'Navbar' && !componentName.includes('Footer') ? 'IMPORTANT: Add an id attribute to the main section: <section id="' + componentName.toLowerCase() + '">. This id must match Navbar links.' : ''}
 
-Return ONLY the complete, polished component code with NO syntax errors, NO markdown, NO code blocks.`;
+Return ONLY the complete, polished component code with NO syntax errors, NO markdown, NO code blocks, NO file operation syntax.`;
 
   // Get the list of components that will actually be generated
   function sectionToComponentName(section: string): string {
@@ -309,6 +374,20 @@ ${userPrompt}`;
   if (content) {
     let cleaned = content.replace(/^```jsx?\n?/, '').replace(/\n?```$/, '').replace(/^```\n?/, '').replace(/\n?```$/, '');
     
+    // Remove file operation syntax if AI mistakenly included it
+    // Remove patterns like: write_file('path', `...`) or write_file("path", """...""")
+    cleaned = cleaned.replace(/write_file\s*\([^)]*\)\s*[,;]?\s*/g, '');
+    cleaned = cleaned.replace(/read_file\s*\([^)]*\)\s*[,;]?\s*/g, '');
+    cleaned = cleaned.replace(/apply_patch\s*\([^)]*\)\s*[,;]?\s*/g, '');
+    cleaned = cleaned.replace(/list_files\s*\([^)]*\)\s*[,;]?\s*/g, '');
+    
+    // Remove Python-style triple quotes if present
+    cleaned = cleaned.replace(/"""[\s\S]*?"""/g, '');
+    cleaned = cleaned.replace(/'''[\s\S]*?'''/g, '');
+    
+    // Remove any remaining file operation patterns
+    cleaned = cleaned.replace(/['"]src\/components\/[^'"]+['"]\s*[,;]?\s*/g, '');
+    
     // Additional cleanup to fix common syntax issues
     // Fix single quotes in className attributes
     cleaned = cleaned.replace(/className='([^']*)'/g, 'className="$1"');
@@ -321,6 +400,9 @@ ${userPrompt}`;
       }
       return match;
     });
+    
+    // Trim any leading/trailing whitespace
+    cleaned = cleaned.trim();
     
     await fileTools.write_file(task.path, cleaned);
   }

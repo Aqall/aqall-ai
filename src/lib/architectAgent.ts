@@ -1,11 +1,22 @@
 /**
  * Architect Agent - Converts plan to file-level tasks
  * 
- * Determines:
- * - Which components to generate
- * - Which config files needed
- * - Which assets needed
- * - Translation files if bilingual
+ * You are the Architect Agent for Aqall.
+ * Your job is to convert the Planner's output into a complete file-level blueprint.
+ * 
+ * Responsibilities:
+ * - Exact list of files to generate
+ * - Exact list of components
+ * - Dependencies required
+ * - Whether translation files are needed
+ * - Whether RTL is needed
+ * - The correct folder structure for Vite + React + Tailwind
+ * 
+ * Always include:
+ * - package.json, index.html, vite.config.js, postcss.config.js, tailwind.config.js
+ * - src/main.jsx, src/App.jsx, src/index.css
+ * - src/components/[ComponentName].jsx for each section
+ * - If bilingual: src/i18n.js, src/locales/en.json, src/locales/ar.json
  */
 
 import { GenerationPlan } from './plannerAgent';
@@ -79,9 +90,22 @@ export function architectGeneration(plan: GenerationPlan): ArchitecturePlan {
       .join('');
   }
 
-  // Components from required sections ONLY
-  plan.requiredSections.forEach(section => {
+  // Remove duplicates from requiredSections first
+  const uniqueSections = Array.from(new Set(plan.requiredSections));
+  
+  // Track which components we've already added to prevent duplicates
+  const addedComponents = new Set<string>();
+  
+  // Components from required sections ONLY (no duplicates)
+  uniqueSections.forEach(section => {
     const componentName = sectionToComponentName(section);
+    
+    // Skip if we've already added this component
+    if (addedComponents.has(componentName)) {
+      return;
+    }
+    
+    addedComponents.add(componentName);
     const path = `src/components/${componentName}.jsx`;
     
     tasks.push({

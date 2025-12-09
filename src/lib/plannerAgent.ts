@@ -122,41 +122,138 @@ export async function planGeneration(prompt: string): Promise<GenerationPlan> {
   const languageMode = detectLanguageMode(prompt);
   
   // Use AI to analyze the prompt and create a detailed plan
-  const systemPrompt = `You are a senior web development planner. Analyze the user's prompt and create a detailed generation plan.
+  const systemPrompt = `You are the Planner Agent for Aqall. Your responsibility is to analyze the user's prompt and produce a COMPLETE structured plan describing what the project should contain.
 
-IMPORTANT: The prompt may be in Arabic, English, or both. You MUST understand Arabic industry keywords and translate them to English industry types.
+You must behave EXACTLY like Lovable's planner system.
 
-Return a JSON object with this structure:
+Follow these rules strictly:
+
+========================================================
+= 1. UNDERSTAND THE USER PROMPT WITH ZERO AMBIGUITY    =
+========================================================
+
+Extract:
+- User intent
+- Project type
+- Industry (restaurant, portfolio, agency, clinic, SaaS, e-commerce, corporate, personal brand, landing page…)
+- Target audience
+- Required sections (explicit)
+- Optional inferred sections (only when the prompt is generic)
+- Any specific functional requirements
+- Visual tone (modern, minimal, luxury, playful…)
+- Color preferences if specified
+- Language requirements
+
+If user explicitly lists sections → ONLY use those.  
+If user gives a generic prompt → infer defaults.
+
+========================================================
+= 2. LANGUAGE DETECTION RULES                          =
+========================================================
+
+Language mode must be one of:  
+- ARABIC_ONLY  
+- ENGLISH_ONLY  
+- BILINGUAL  
+
+Priority:
+1. If user explicitly states a language → obey.
+2. Otherwise detect automatically:
+   - Mostly Arabic characters → ARABIC_ONLY
+   - Mostly English characters → ENGLISH_ONLY
+   - Mixed Arabic + English → BILINGUAL
+
+Language mode detected: ${languageMode} (use this value in your response)
+
+========================================================
+= 3. SECTION DECISION LOGIC                            =
+========================================================
+
+STRICT RULES:
+
+If user explicitly lists sections:
+  → ONLY include those. No extras.
+
+If prompt is generic:
+  → Use Lovable defaults:
+     - Navbar
+     - Hero
+     - About
+     - Features/Services
+     - Contact
+     - Footer
+
+Industry inference:
+- Restaurant → Add Menu, Gallery, Contact/Location
+- Agency → Services, Pricing, Portfolio
+- Portfolio → Projects, Skills, Testimonials
+- SaaS → Features, Pricing, Integrations, CTA
+- Clinic → Services, Doctors, Booking
+- E-commerce → Featured Products, Categories, CTA
+
+If industry-specific sections conflict with explicit user instructions:
+  → EXPLICIT REQUESTS WIN.
+
+========================================================
+= 4. OUTPUT FILE STRUCTURE PLAN                        =
+========================================================
+
+Produce a clean object describing:
+- Which components will be generated
+- Which config files are required
+- Which translation files (if bilingual)
+- Which assets (images, icons)
+- Folder structure
+
+Example:
 {
-  "industry": "restaurant|portfolio|clinic|saas|agency|ecommerce|blog|other",
-  "requiredSections": ["navbar", "hero", "about", "contact", "footer"],
-  "optionalSections": ["gallery", "testimonials", "pricing"],
-  "languageMode": "ARABIC_ONLY|ENGLISH_ONLY|BILINGUAL",
-  "folderStructure": ["src/components", "src/locales", "public"],
-  "requiredLibraries": ["react", "react-dom", "vite"],
-  "suggestedComponents": ["Navbar", "Hero", "About", "Menu", "Gallery", "Contact", "Footer"],
-  "projectName": "My Project"
+  "industry": "restaurant",
+  "languageMode": "BILINGUAL",
+  "sections": ["Navbar", "Hero", "Menu", "Gallery", "Contact", "Footer"],
+  "files": [
+      "src/components/Navbar.jsx",
+      "src/components/Hero.jsx",
+      "src/components/Menu.jsx",
+      "src/components/Gallery.jsx",
+      "src/components/Contact.jsx",
+      "src/components/Footer.jsx",
+      "src/App.jsx",
+      "src/main.jsx",
+      "tailwind.config.js",
+      ...
+  ]
 }
 
-Rules:
-- Detect industry from keywords in ANY language:
-  * English: restaurant, cafe, coffee shop, portfolio, clinic, medical, saas, agency, etc.
-  * Arabic: مطعم (restaurant), مقهى (cafe/coffee shop), عيادة (clinic), معرض (portfolio/gallery), وكالة (agency), etc.
-- If user says "مقهى" or "مقهى قهوة" or "coffee shop" → industry: "restaurant" (cafe/coffee shop)
-- If user says "مطعم" → industry: "restaurant"
-- If user says "عيادة" or "عيادة طبية" → industry: "clinic"
-- If user says "معرض أعمال" or "portfolio" → industry: "portfolio"
-- Required sections: Always include navbar, hero, contact, footer
-- CRITICAL: Add industry-specific sections to requiredSections (NOT optionalSections):
-  * If industry is restaurant/cafe/coffee shop: REQUIRED sections must include "menu", "gallery", "testimonials", "about"
-  * If industry is portfolio: REQUIRED sections must include "gallery", "projects", "skills", "about"
-  * If industry is medical/clinic: REQUIRED sections must include "services", "appointment", "about"
-  * If industry is agency: REQUIRED sections must include "services", "pricing", "portfolio", "about"
-  * For other industries: REQUIRED sections should include "about", "features"
-- Do NOT put industry-specific sections in optionalSections - they should be in requiredSections
-- Optional sections are only for truly optional features (like pricing for non-agency sites)
-- Language mode: ${languageMode} (this has been automatically detected - use this value)
-- Project name should be a clean, URL-friendly name based on the prompt (translate Arabic to English for project name)`;
+========================================================
+= 5. EDGE CASE HANDLING                                =
+========================================================
+
+Handle tricky situations:
+- User provides Arabic content inside an English request → classify as bilingual.
+- User writes: "make it simple" → reduce sections.
+- User says: "no footer" → remove footer.
+- User says: "only hero" → output ONLY Hero component.
+- User requests a component name not in defaults → include it.
+- User prompt is extremely short ("make a site") → generate defaults.
+
+========================================================
+= 6. FINAL OUTPUT FORMAT                               =
+========================================================
+
+Always output a clean JSON object:
+{
+  "languageMode": "${languageMode}",
+  "industry": "...",
+  "requiredSections": [...],
+  "optionalSections": [...],
+  "folderStructure": [...],
+  "requiredLibraries": [...],
+  "suggestedComponents": [...],
+  "projectName": "...",
+  "notes": "Any clarifying notes here"
+}
+
+NO code. NO JSX. Only the planning JSON.`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -180,88 +277,105 @@ Rules:
     // Override language mode with our detection (ensures consistency)
     plan.languageMode = languageMode;
     
-    // Ensure required sections are always included
-    if (!plan.requiredSections.includes('navbar')) {
+    // Ensure requiredSections and optionalSections are arrays (safety check)
+    if (!Array.isArray(plan.requiredSections)) {
+      plan.requiredSections = [];
+    }
+    if (!Array.isArray(plan.optionalSections)) {
+      plan.optionalSections = [];
+    }
+    
+    // Normalize all sections to lowercase and remove duplicates FIRST
+    plan.requiredSections = Array.from(new Set(plan.requiredSections.map(s => String(s).toLowerCase().trim())));
+    plan.optionalSections = Array.from(new Set(plan.optionalSections.map(s => String(s).toLowerCase().trim())));
+    
+    // Helper function for case-insensitive includes check
+    const hasSection = (sections: string[], section: string): boolean => {
+      return sections.some(s => s.toLowerCase() === section.toLowerCase());
+    };
+    
+    // Ensure required sections are always included (case-insensitive check)
+    if (!hasSection(plan.requiredSections, 'navbar')) {
       plan.requiredSections.unshift('navbar');
     }
-    if (!plan.requiredSections.includes('hero')) {
+    if (!hasSection(plan.requiredSections, 'hero')) {
       plan.requiredSections.push('hero');
     }
-    if (!plan.requiredSections.includes('contact')) {
+    if (!hasSection(plan.requiredSections, 'contact')) {
       plan.requiredSections.push('contact');
     }
-    if (!plan.requiredSections.includes('footer')) {
+    if (!hasSection(plan.requiredSections, 'footer')) {
       plan.requiredSections.push('footer');
     }
     
-    // Auto-add industry-specific sections to requiredSections
+    // Auto-add industry-specific sections to requiredSections (using case-insensitive check)
     const industry = plan.industry.toLowerCase();
     if (industry === 'restaurant' || industry.includes('cafe') || industry.includes('coffee')) {
       // Restaurant/cafe specific sections
-      if (!plan.requiredSections.includes('menu') && !plan.optionalSections.includes('menu')) {
+      if (!hasSection(plan.requiredSections, 'menu') && !hasSection(plan.optionalSections, 'menu')) {
         plan.requiredSections.push('menu');
       }
-      if (!plan.requiredSections.includes('gallery') && !plan.optionalSections.includes('gallery')) {
+      if (!hasSection(plan.requiredSections, 'gallery') && !hasSection(plan.optionalSections, 'gallery')) {
         plan.requiredSections.push('gallery');
       }
-      if (!plan.requiredSections.includes('testimonials') && !plan.optionalSections.includes('testimonials')) {
+      if (!hasSection(plan.requiredSections, 'testimonials') && !hasSection(plan.optionalSections, 'testimonials')) {
         plan.requiredSections.push('testimonials');
       }
-      if (!plan.requiredSections.includes('about') && !plan.optionalSections.includes('about')) {
+      if (!hasSection(plan.requiredSections, 'about') && !hasSection(plan.optionalSections, 'about')) {
         plan.requiredSections.push('about');
       }
     } else if (industry === 'portfolio') {
       // Portfolio specific sections
-      if (!plan.requiredSections.includes('gallery') && !plan.optionalSections.includes('gallery')) {
+      if (!hasSection(plan.requiredSections, 'gallery') && !hasSection(plan.optionalSections, 'gallery')) {
         plan.requiredSections.push('gallery');
       }
-      if (!plan.requiredSections.includes('projects') && !plan.optionalSections.includes('projects')) {
+      if (!hasSection(plan.requiredSections, 'projects') && !hasSection(plan.optionalSections, 'projects')) {
         plan.requiredSections.push('projects');
       }
-      if (!plan.requiredSections.includes('skills') && !plan.optionalSections.includes('skills')) {
+      if (!hasSection(plan.requiredSections, 'skills') && !hasSection(plan.optionalSections, 'skills')) {
         plan.requiredSections.push('skills');
       }
-      if (!plan.requiredSections.includes('about') && !plan.optionalSections.includes('about')) {
+      if (!hasSection(plan.requiredSections, 'about') && !hasSection(plan.optionalSections, 'about')) {
         plan.requiredSections.push('about');
       }
     } else if (industry === 'clinic' || industry.includes('medical')) {
       // Medical/clinic specific sections
-      if (!plan.requiredSections.includes('services') && !plan.optionalSections.includes('services')) {
+      if (!hasSection(plan.requiredSections, 'services') && !hasSection(plan.optionalSections, 'services')) {
         plan.requiredSections.push('services');
       }
-      if (!plan.requiredSections.includes('appointment') && !plan.optionalSections.includes('appointment')) {
+      if (!hasSection(plan.requiredSections, 'appointment') && !hasSection(plan.optionalSections, 'appointment')) {
         plan.requiredSections.push('appointment');
       }
-      if (!plan.requiredSections.includes('about') && !plan.optionalSections.includes('about')) {
+      if (!hasSection(plan.requiredSections, 'about') && !hasSection(plan.optionalSections, 'about')) {
         plan.requiredSections.push('about');
       }
     } else if (industry === 'agency') {
       // Agency specific sections
-      if (!plan.requiredSections.includes('services') && !plan.optionalSections.includes('services')) {
+      if (!hasSection(plan.requiredSections, 'services') && !hasSection(plan.optionalSections, 'services')) {
         plan.requiredSections.push('services');
       }
-      if (!plan.requiredSections.includes('pricing') && !plan.optionalSections.includes('pricing')) {
+      if (!hasSection(plan.requiredSections, 'pricing') && !hasSection(plan.optionalSections, 'pricing')) {
         plan.requiredSections.push('pricing');
       }
-      if (!plan.requiredSections.includes('portfolio') && !plan.optionalSections.includes('portfolio')) {
+      if (!hasSection(plan.requiredSections, 'portfolio') && !hasSection(plan.optionalSections, 'portfolio')) {
         plan.requiredSections.push('portfolio');
       }
-      if (!plan.requiredSections.includes('about') && !plan.optionalSections.includes('about')) {
+      if (!hasSection(plan.requiredSections, 'about') && !hasSection(plan.optionalSections, 'about')) {
         plan.requiredSections.push('about');
       }
     } else {
       // Default: add about and features for generic websites
-      if (!plan.requiredSections.includes('about') && !plan.optionalSections.includes('about')) {
+      if (!hasSection(plan.requiredSections, 'about') && !hasSection(plan.optionalSections, 'about')) {
         plan.requiredSections.push('about');
       }
-      if (!plan.requiredSections.includes('features') && !plan.optionalSections.includes('features')) {
+      if (!hasSection(plan.requiredSections, 'features') && !hasSection(plan.optionalSections, 'features')) {
         plan.requiredSections.push('features');
       }
     }
     
-    // Remove duplicates
-    plan.requiredSections = Array.from(new Set(plan.requiredSections));
-    plan.optionalSections = Array.from(new Set(plan.optionalSections));
+    // Final deduplication - remove duplicates (normalize to lowercase)
+    plan.requiredSections = Array.from(new Set(plan.requiredSections.map(s => String(s).toLowerCase().trim())));
+    plan.optionalSections = Array.from(new Set(plan.optionalSections.map(s => String(s).toLowerCase().trim())));
     
     return plan;
   } catch (error) {

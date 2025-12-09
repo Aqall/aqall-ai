@@ -153,31 +153,52 @@ function generatePreviewHTML(files: ProjectFiles, languageMode: string): string 
       return match;
     });
     
-    // Check if it's already a function
-    const isFunction = cleaned.includes('function ') || 
-                      (cleaned.includes('const ') && cleaned.includes('=') && cleaned.includes('=>'));
+    // Check if it's already a function (arrow function or function declaration)
+    const hasArrowFunction = /const\s+\w+\s*=\s*\([^)]*\)\s*=>/.test(cleaned) || 
+                            /const\s+\w+\s*=\s*\(\)\s*=>/.test(cleaned);
+    const hasFunctionDeclaration = /function\s+\w+\s*\(/.test(cleaned);
+    const isFunction = hasArrowFunction || hasFunctionDeclaration;
     
-    // If it starts with 'return' or JSX, it needs a function wrapper
-    if (cleaned.trim().startsWith('return') || 
-        (cleaned.trim().startsWith('(') && !isFunction) || 
-        (cleaned.trim().startsWith('<') && !isFunction)) {
-      // Extract the return value
-      let returnValue = cleaned;
-      if (returnValue.trim().startsWith('return')) {
-        returnValue = returnValue.replace(/^return\s+/, '').trim();
-        // Remove trailing semicolon if present
-        if (returnValue.endsWith(';')) {
-          returnValue = returnValue.slice(0, -1).trim();
-        }
+    // Ensure component name matches the expected format
+    const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
+    
+    // If it's already a valid function (arrow or declaration), keep it as is
+    if (isFunction) {
+      // Ensure the component name matches (fix if needed)
+      if (hasArrowFunction) {
+        // Fix arrow function name if it doesn't match
+        cleaned = cleaned.replace(/const\s+\w+\s*=\s*\([^)]*\)\s*=>/, `const ${capitalized} = () =>`);
+        cleaned = cleaned.replace(/const\s+\w+\s*=\s*\(\)\s*=>/, `const ${capitalized} = () =>`);
+      } else if (hasFunctionDeclaration) {
+        // Fix function declaration name if it doesn't match
+        cleaned = cleaned.replace(/function\s+\w+\s*\(/, `function ${capitalized}(`);
       }
-      
-      // Wrap in function
-      const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
-      cleaned = `function ${capitalized}() {\n  return (\n    ${returnValue}\n  );\n}`;
-    } else if (!isFunction) {
-      // If it doesn't look like a function, try to wrap it
-      const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
-      cleaned = `function ${capitalized}() {\n  return (\n    <div>Component ${capitalized}</div>\n  );\n}`;
+    } else {
+      // If it starts with 'return' or JSX, it needs a function wrapper
+      if (cleaned.trim().startsWith('return') || 
+          (cleaned.trim().startsWith('(') && !isFunction) || 
+          (cleaned.trim().startsWith('<') && !isFunction)) {
+        // Extract the return value
+        let returnValue = cleaned;
+        if (returnValue.trim().startsWith('return')) {
+          returnValue = returnValue.replace(/^return\s+/, '').trim();
+          // Remove trailing semicolon if present
+          if (returnValue.endsWith(';')) {
+            returnValue = returnValue.slice(0, -1).trim();
+          }
+        }
+        
+        // Wrap in arrow function
+        cleaned = `const ${capitalized} = () => {\n  return (\n    ${returnValue}\n  );\n};`;
+      } else if (!isFunction) {
+        // If it doesn't look like a function, create a basic one
+        cleaned = `const ${capitalized} = () => {\n  return (\n    <div>Component ${capitalized}</div>\n  );\n};`;
+      }
+    }
+    
+    // Ensure component ends with semicolon if it's an arrow function
+    if (cleaned.includes('const ') && cleaned.includes('=>') && !cleaned.trim().endsWith(';')) {
+      cleaned = cleaned.trim() + ';';
     }
     
     componentCode += `\n    // ${name} component\n    ${cleaned}\n`;
