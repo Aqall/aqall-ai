@@ -45,7 +45,7 @@ async function getNextVersion(projectId: string): Promise<number> {
  * Generate preview HTML from React project files
  * Uses Babel standalone to run React components in browser
  */
-function generatePreviewHTML(files: ProjectFiles, languageMode: string): string {
+export function generatePreviewHTML(files: ProjectFiles, languageMode: string): string {
   // Extract key files
   const appJsx = files['src/App.jsx'] || '';
   const mainJsx = files['src/main.jsx'] || '';

@@ -47,7 +47,11 @@ interface BuildResponse {
   languageMode?: 'arabic-only' | 'english-only' | 'bilingual';
   sections?: string[];
   previewHtml: string;
-  createdAt: string;
+  createdAt?: string;
+  // Edit-specific fields
+  filesChanged?: string[];
+  patches?: Array<{ path: string; diff: string; summary: string }>;
+  errors?: string[];
 }
 
 export default function BuildChat() {
@@ -187,8 +191,12 @@ export default function BuildChat() {
           content: msg.content,
         }));
 
-      // Call API endpoint
-      const response = await fetch('/api/generate', {
+      // Determine if this is an edit (has existing builds) or new generation
+      const hasExistingBuilds = builds && builds.length > 0;
+      const apiEndpoint = hasExistingBuilds ? '/api/edit' : '/api/generate';
+
+      // Call API endpoint (edit if builds exist, generate if new)
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -210,24 +218,38 @@ export default function BuildChat() {
       // Invalidate builds query to refetch
       queryClient.invalidateQueries({ queryKey: ['builds', projectId] });
 
+      // Determine if this was an edit or generation
+      const isEdit = hasExistingBuilds;
+      const actionText = isEdit 
+        ? (direction === 'rtl' ? 'تم التعديل' : 'Edited')
+        : (direction === 'rtl' ? 'تم الإنشاء' : 'Generated');
+
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: direction === 'rtl' 
-          ? `تم إنشاء موقعك بنجاح! (الإصدار ${buildResponse.version})` 
-          : `Your website has been generated! (Version ${buildResponse.version})`,
+        content: isEdit
+          ? (direction === 'rtl' 
+              ? `تم تعديل موقعك بنجاح! (الإصدار ${buildResponse.version})` 
+              : `Your website has been edited! (Version ${buildResponse.version})`)
+          : (direction === 'rtl' 
+              ? `تم إنشاء موقعك بنجاح! (الإصدار ${buildResponse.version})` 
+              : `Your website has been generated! (Version ${buildResponse.version})`),
         buildVersion: buildResponse.version,
-        timestamp: new Date(buildResponse.createdAt),
+        timestamp: new Date(buildResponse.createdAt || new Date().toISOString()),
       };
 
       setMessages(prev => [...prev, assistantMessage]);
       setSelectedVersion(buildResponse.version);
 
       toast({
-        title: direction === 'rtl' ? 'تم الإنشاء' : 'Generated',
-        description: direction === 'rtl' 
-          ? `تم إنشاء الإصدار ${buildResponse.version} بنجاح`
-          : `Version ${buildResponse.version} created successfully`,
+        title: actionText,
+        description: isEdit
+          ? (direction === 'rtl' 
+              ? `تم تعديل الإصدار ${buildResponse.version} بنجاح` 
+              : `Version ${buildResponse.version} edited successfully`)
+          : (direction === 'rtl' 
+              ? `تم إنشاء الإصدار ${buildResponse.version} بنجاح`
+              : `Version ${buildResponse.version} created successfully`),
       });
     } catch (error) {
       console.error('Generation error:', error);

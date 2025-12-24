@@ -124,26 +124,94 @@ export function createFileTools(
 }
 
 /**
- * Simple patch application (simplified - in production use a proper diff library)
+ * Apply unified diff patch to content
+ * Supports proper unified diff format with context lines
  */
 function applySimplePatch(content: string, diff: string): string {
-  // This is a very basic implementation
-  // In production, you'd use a library like 'diff' or 'diff-match-patch'
-  // For now, if diff starts with lines to add, we append them
-  const lines = diff.split('\n');
-  const additions: string[] = [];
+  const contentLines = content.split('\n');
+  const diffLines = diff.split('\n');
   
-  for (const line of lines) {
-    if (line.startsWith('+') && !line.startsWith('+++')) {
-      additions.push(line.substring(1));
+  let result = [...contentLines];
+  let lineOffset = 0;
+  let inHunk = false;
+  let hunkStart = 0;
+  let hunkLine = 0;
+
+  for (let i = 0; i < diffLines.length; i++) {
+    const line = diffLines[i];
+    
+    // Match hunk header: @@ -start,count +start,count @@
+    const hunkMatch = line.match(/^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/);
+    if (hunkMatch) {
+      inHunk = true;
+      hunkStart = parseInt(hunkMatch[1]) - 1; // Convert to 0-based index
+      hunkLine = 0;
+      lineOffset = 0;
+      continue;
+    }
+
+    if (!inHunk) continue;
+
+    // Context line (unchanged) - verify it matches current content
+    if (line.startsWith(' ')) {
+      const expectedLine = result[hunkStart + hunkLine + lineOffset];
+      const contextLine = line.substring(1);
+      
+      // If context doesn't match, try to find it nearby (fuzzy matching)
+      if (expectedLine !== contextLine) {
+        // Look ahead/behind for matching context
+        let found = false;
+        for (let offset = -2; offset <= 2; offset++) {
+          const checkIndex = hunkStart + hunkLine + lineOffset + offset;
+          if (checkIndex >= 0 && checkIndex < result.length && result[checkIndex] === contextLine) {
+            lineOffset = offset;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          // Context mismatch - log warning but continue
+          console.warn(`Context mismatch at line ${hunkStart + hunkLine + 1}, continuing anyway...`);
+        }
+      }
+      hunkLine++;
+    }
+    // Deletion line
+    else if (line.startsWith('-')) {
+      const deleteLine = line.substring(1);
+      const currentIndex = hunkStart + hunkLine + lineOffset;
+      
+      if (currentIndex >= 0 && currentIndex < result.length) {
+        const currentLine = result[currentIndex];
+        // Verify the line matches (or close enough)
+        if (currentLine === deleteLine || currentLine.includes(deleteLine) || deleteLine.includes(currentLine)) {
+          result.splice(currentIndex, 1);
+          lineOffset--;
+        } else {
+          console.warn(`Deletion mismatch at line ${currentIndex + 1}, skipping...`);
+        }
+      }
+      hunkLine++;
+    }
+    // Addition line
+    else if (line.startsWith('+')) {
+      const addLine = line.substring(1);
+      const insertIndex = hunkStart + hunkLine + lineOffset + 1;
+      result.splice(insertIndex, 0, addLine);
+      lineOffset++;
+      hunkLine++;
+    }
+    // End of hunk (empty line or new hunk)
+    else if (line.trim() === '' && i < diffLines.length - 1) {
+      // Check if next line is a new hunk
+      const nextLine = diffLines[i + 1];
+      if (!nextLine.startsWith('@@')) {
+        inHunk = false;
+      }
     }
   }
-  
-  if (additions.length > 0) {
-    return content + '\n' + additions.join('\n');
-  }
-  
-  return content;
+
+  return result.join('\n');
 }
 
 /**
@@ -162,14 +230,32 @@ export function workspaceToJsonb(files: WorkspaceFile[]): any {
 
 /**
  * Convert JSONB from Supabase to workspace files
+ * Handles both formats:
+ * 1. Array format: [{ path: "...", content: "...", type: "file" }]
+ * 2. Object format (ProjectFiles): { "path/to/file": "content", ... }
  */
 export function jsonbToWorkspace(jsonb: any): WorkspaceFile[] {
-  if (!jsonb || !Array.isArray(jsonb)) {
+  if (!jsonb) {
     return [];
   }
-  return jsonb.map((file: any) => ({
-    path: file.path,
-    content: file.content || '',
-    type: file.type || 'file',
-  }));
+  
+  // If it's already an array format
+  if (Array.isArray(jsonb)) {
+    return jsonb.map((file: any) => ({
+      path: file.path,
+      content: file.content || '',
+      type: file.type || 'file',
+    }));
+  }
+  
+  // If it's an object format (ProjectFiles - keys are file paths)
+  if (typeof jsonb === 'object' && !Array.isArray(jsonb)) {
+    return Object.entries(jsonb).map(([path, content]) => ({
+      path,
+      content: typeof content === 'string' ? content : String(content),
+      type: 'file' as const,
+    }));
+  }
+  
+  return [];
 }
