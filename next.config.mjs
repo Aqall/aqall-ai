@@ -5,8 +5,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Output standalone for better deployment
-  output: 'standalone',
   // Enable experimental features if needed
   experimental: {
     // Add any experimental features here

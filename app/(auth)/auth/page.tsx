@@ -3,7 +3,7 @@
 // Disable static generation for this page (uses client-side auth)
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -22,7 +22,7 @@ const fadeInUp = {
   transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] }
 };
 
-export default function Auth() {
+function AuthContent() {
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode') || 'login';
   const isLogin = mode === 'login';
@@ -301,5 +301,17 @@ export default function Auth() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function Auth() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <AuthContent />
+    </Suspense>
   );
 }
