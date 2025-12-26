@@ -1,5 +1,8 @@
 'use client';
 
+// Disable static generation for this page (uses client-side auth)
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -65,7 +68,7 @@ export default function Auth() {
         description: result.error,
         variant: 'destructive',
       });
-    } else if (result.needsConfirmation) {
+    } else if ('needsConfirmation' in result && result.needsConfirmation) {
       // Show email confirmation message
       setNeedsEmailConfirmation(true);
       toast({

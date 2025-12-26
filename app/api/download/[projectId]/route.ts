@@ -71,7 +71,7 @@ export async function GET(
     }
 
     // Return ZIP file
-    return new NextResponse(zipBuffer, {
+    return new NextResponse(zipBuffer as unknown as Blob, {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${projectName}-v${build.version}.zip"`,

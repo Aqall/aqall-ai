@@ -116,4 +116,27 @@ export async function editSiteFromPrompt(args: {
     languageMode = 'arabic-only';
   }
 
-  // Step 7: Generate pr
+  // Step 7: Create new build with edited files
+  console.log(`📦 Creating new build version with edited files...`);
+  const newBuild = await createBuild({
+    projectId,
+    prompt: message,
+    files: projectFiles,
+    summary: editResult.summary,
+    languageMode,
+  });
+
+  console.log(`✅ Created build version ${newBuild.version}`);
+
+  // Step 8: Return result
+  return {
+    files: projectFiles,
+    summary: editResult.summary,
+    filesChanged: editResult.filesChanged,
+    patches: editResult.patches,
+    version: newBuild.version,
+    previewHtml: newBuild.preview_html || '',
+    success: editResult.success,
+    errors: editResult.errors,
+  };
+}

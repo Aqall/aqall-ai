@@ -210,7 +210,21 @@ export default function BuildChat() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Failed to generate website');
+        const errorMessage = errorData.message || errorData.error || 'Failed to generate website';
+        
+        // Handle project locked error specifically
+        if (errorData.code === 'PROJECT_LOCKED' || response.status === 409) {
+          toast({
+            title: direction === 'rtl' ? 'المشروع قيد المعالجة' : 'Project Busy',
+            description: direction === 'rtl' 
+              ? 'المشروع قيد المعالجة حالياً. يرجى الانتظار حتى اكتمال العملية الحالية.'
+              : 'The project is currently being processed. Please wait for the current operation to complete.',
+            variant: 'destructive',
+          });
+          throw new Error(errorMessage);
+        }
+        
+        throw new Error(errorMessage);
       }
 
       const buildResponse: BuildResponse = await response.json();
