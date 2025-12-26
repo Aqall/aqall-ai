@@ -48,46 +48,69 @@ function AuthContent() {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!isLogin && password !== confirmPassword) {
+    // Add timeout safeguard - prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('Login/signup timeout - resetting loading state');
+      setIsLoading(false);
+    }, 15000); // 15 second max timeout
+
+    try {
+      if (!isLogin && password !== confirmPassword) {
+        clearTimeout(timeoutId);
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: language === 'ar' ? 'كلمات المرور غير متطابقة' : 'Passwords do not match',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      const result = isLogin 
+        ? await login(email, password)
+        : await signup(email, password);
+
+      clearTimeout(timeoutId);
+
+      if (result.error) {
+        toast({
+          title: language === 'ar' ? 'خطأ' : 'Error',
+          description: result.error,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+      } else if ('needsConfirmation' in result && result.needsConfirmation) {
+        // Show email confirmation message
+        setNeedsEmailConfirmation(true);
+        toast({
+          title: language === 'ar' ? 'تحقق من بريدك الإلكتروني' : 'Check your email',
+          description: language === 'ar' 
+            ? 'تم إرسال رابط التحقق إلى بريدك الإلكتروني. يرجى التحقق من بريدك والنقر على الرابط للتفعيل.'
+            : 'We sent a confirmation link to your email. Please check your inbox and click the link to verify your account.',
+        });
+        setIsLoading(false);
+      } else {
+        toast({
+          title: language === 'ar' ? 'نجاح' : 'Success',
+          description: isLogin 
+            ? (language === 'ar' ? 'تم تسجيل الدخول بنجاح' : 'Logged in successfully')
+            : (language === 'ar' ? 'تم إنشاء الحساب بنجاح' : 'Account created successfully'),
+        });
+        setIsLoading(false);
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error('Unexpected error during login/signup:', error);
       toast({
         title: language === 'ar' ? 'خطأ' : 'Error',
-        description: language === 'ar' ? 'كلمات المرور غير متطابقة' : 'Passwords do not match',
+        description: language === 'ar' 
+          ? 'حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.'
+          : 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
       setIsLoading(false);
-      return;
     }
-
-    const result = isLogin 
-      ? await login(email, password)
-      : await signup(email, password);
-
-    if (result.error) {
-      toast({
-        title: language === 'ar' ? 'خطأ' : 'Error',
-        description: result.error,
-        variant: 'destructive',
-      });
-    } else if ('needsConfirmation' in result && result.needsConfirmation) {
-      // Show email confirmation message
-      setNeedsEmailConfirmation(true);
-      toast({
-        title: language === 'ar' ? 'تحقق من بريدك الإلكتروني' : 'Check your email',
-        description: language === 'ar' 
-          ? 'تم إرسال رابط التحقق إلى بريدك الإلكتروني. يرجى التحقق من بريدك والنقر على الرابط للتفعيل.'
-          : 'We sent a confirmation link to your email. Please check your inbox and click the link to verify your account.',
-      });
-    } else {
-      toast({
-        title: language === 'ar' ? 'نجاح' : 'Success',
-        description: isLogin 
-          ? (language === 'ar' ? 'تم تسجيل الدخول بنجاح' : 'Logged in successfully')
-          : (language === 'ar' ? 'تم إنشاء الحساب بنجاح' : 'Account created successfully'),
-      });
-      router.push('/dashboard');
-    }
-
-    setIsLoading(false);
   };
 
   return (

@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn('Auth loading timeout - forcing resolution');
         setIsLoading(false);
       }
-    }, 10000); // 10 second max timeout
+    }, 5000); // 5 second max timeout (reduced from 10s)
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
@@ -83,12 +83,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (session?.user) {
         // Ensure profile exists when user signs in
-        await ensureProfile(session.user);
+        // Don't await - do it in background to not block auth state update
+        ensureProfile(session.user).catch((error) => {
+          console.error('Error ensuring profile in onAuthStateChange:', error);
+          // Don't block - user is already authenticated
+        });
         setUser(mapSupabaseUser(session.user));
       } else {
         setUser(null);
-    }
-    setIsLoading(false);
+      }
+      setIsLoading(false);
     });
 
     return () => {
@@ -117,14 +121,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user && data.session) {
-        // Ensure profile exists
-        await ensureProfile(data.user);
+        // Ensure profile exists (don't await to not block login - it will run in background)
+        ensureProfile(data.user).catch((error) => {
+          console.error('Error ensuring profile after login:', error);
+          // Don't block - user is already authenticated
+        });
         setUser(mapSupabaseUser(data.user));
+        return {};
       } else if (data.user && !data.session) {
         return { error: 'Please check your email to confirm your account.' };
       }
 
-    return {};
+      return {};
     } catch (error) {
       return { error: error instanceof Error ? error.message : 'An unexpected error occurred' };
     }
@@ -159,7 +167,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session) {
           // User is immediately logged in (email confirmation disabled)
           console.log('Email confirmation disabled - user logged in immediately');
-          await ensureProfile(data.user);
+          // Ensure profile exists (don't await to not block signup - it will run in background)
+          ensureProfile(data.user).catch((error) => {
+            console.error('Error ensuring profile after signup:', error);
+            // Don't block - user is already authenticated
+          });
           setUser(mapSupabaseUser(data.user));
           return {};
         } else {

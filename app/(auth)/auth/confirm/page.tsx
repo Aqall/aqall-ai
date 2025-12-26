@@ -21,7 +21,21 @@ function ConfirmEmailContent() {
   useEffect(() => {
     let mounted = true;
     let timeoutId: NodeJS.Timeout;
+    let mainTimeoutId: NodeJS.Timeout;
     let authListener: { data: { subscription: { unsubscribe: () => void } } } | null = null;
+
+    // Main timeout - prevent infinite loading (15 seconds)
+    mainTimeoutId = setTimeout(() => {
+      if (mounted && status === 'loading') {
+        console.warn('Email confirmation timeout - showing error');
+        setStatus('error');
+        setErrorMessage(
+          language === 'ar' 
+            ? 'استغرق التحقق وقتًا طويلاً. يرجى التحقق من رابط البريد الإلكتروني أو المحاولة مرة أخرى.'
+            : 'Verification took too long. Please check your email link or try again.'
+        );
+      }
+    }, 15000);
 
     const handleEmailConfirmation = async () => {
       // Listen for auth state changes (Supabase auto-detects sessions)
@@ -29,13 +43,21 @@ function ConfirmEmailContent() {
         if (!mounted) return;
 
         if (event === 'SIGNED_IN' && session?.user) {
-          await ensureProfile(session.user);
+          // Don't await - run in background to not block
+          ensureProfile(session.user).catch((error) => {
+            console.error('Error ensuring profile in email confirm:', error);
+          });
+          if (mainTimeoutId) clearTimeout(mainTimeoutId);
           setStatus('success');
           timeoutId = setTimeout(() => {
             router.push('/dashboard');
           }, 2000);
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          await ensureProfile(session.user);
+          // Don't await - run in background to not block
+          ensureProfile(session.user).catch((error) => {
+            console.error('Error ensuring profile in email confirm:', error);
+          });
+          if (mainTimeoutId) clearTimeout(mainTimeoutId);
           setStatus('success');
           timeoutId = setTimeout(() => {
             router.push('/dashboard');
@@ -49,8 +71,12 @@ function ConfirmEmailContent() {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (session && !sessionError && session.user) {
-        await ensureProfile(session.user);
+        // Don't await - run in background to not block
+        ensureProfile(session.user).catch((error) => {
+          console.error('Error ensuring profile in email confirm:', error);
+        });
         if (mounted) {
+          if (mainTimeoutId) clearTimeout(mainTimeoutId);
           setStatus('success');
           timeoutId = setTimeout(() => {
             router.push('/dashboard');
@@ -85,8 +111,12 @@ function ConfirmEmailContent() {
         }
 
         if (data.user && data.session) {
-          await ensureProfile(data.user);
+          // Don't await - run in background to not block
+          ensureProfile(data.user).catch((error) => {
+            console.error('Error ensuring profile in email confirm:', error);
+          });
           if (mounted) {
+            if (mainTimeoutId) clearTimeout(mainTimeoutId);
             setStatus('success');
             timeoutId = setTimeout(() => {
               router.push('/dashboard');
@@ -113,8 +143,12 @@ function ConfirmEmailContent() {
         }
 
         if (data.user && data.session) {
-          await ensureProfile(data.user);
+          // Don't await - run in background to not block
+          ensureProfile(data.user).catch((error) => {
+            console.error('Error ensuring profile in email confirm:', error);
+          });
           if (mounted) {
+            if (mainTimeoutId) clearTimeout(mainTimeoutId);
             setStatus('success');
             timeoutId = setTimeout(() => {
               router.push('/dashboard');
@@ -146,6 +180,7 @@ function ConfirmEmailContent() {
     return () => {
       mounted = false;
       if (timeoutId) clearTimeout(timeoutId);
+      if (mainTimeoutId) clearTimeout(mainTimeoutId);
       if (authListener) {
         authListener.data.subscription.unsubscribe();
       }

@@ -45,6 +45,19 @@ export default function Preview() {
   const versionParam = searchParams.get('version');
   
   const { user, isLoading: authLoading } = useAuth();
+  const [authTimeout, setAuthTimeout] = useState(false);
+
+  // Timeout for auth loading (prevent infinite loading)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (authLoading) {
+        console.warn('Auth loading timeout on preview page - proceeding anyway');
+        setAuthTimeout(true);
+      }
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timer);
+  }, [authLoading]);
   const { t, direction } = useLanguage();
   const router = useRouter();
   
@@ -54,10 +67,10 @@ export default function Preview() {
 
   // Auth check
   useEffect(() => {
-    if (!authLoading && !user) {
+    if ((!authLoading || authTimeout) && !user) {
       router.push('/auth?mode=login');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, authTimeout, router]);
 
   // Load project from Supabase
   const {
@@ -163,8 +176,8 @@ export default function Preview() {
     }
   };
 
-  // Show loading only if auth is loading
-  if (authLoading) {
+  // Show loading only if auth is loading and not timed out
+  if (authLoading && !authTimeout && !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
