@@ -21,3 +21,5 @@ UPDATE public.projects
 SET build_status = 'idle'
 WHERE build_status IS NULL;
 
+
+

@@ -5,12 +5,14 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabaseClient';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { getProjectById } from '@/lib/projectService';
 import { getBuildsByProject } from '@/lib/buildService';
+import { getLatestDeploymentByProject, type Deployment } from '@/lib/deploymentService';
 import { 
   ArrowLeft, 
   Send, 
@@ -19,7 +21,10 @@ import {
   Eye, 
   Clock,
   ChevronDown,
-  User
+  User,
+  Rocket,
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -79,6 +84,7 @@ export default function BuildChat() {
   const [inputValue, setInputValue] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
   
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -116,6 +122,18 @@ export default function BuildChat() {
   } = useQuery({
     queryKey: ['builds', projectId],
     queryFn: () => getBuildsByProject(projectId),
+    enabled: !!projectId,
+    refetchOnMount: true,
+  });
+
+  // Load latest deployment
+  const {
+    data: latestDeployment,
+    isLoading: deploymentLoading,
+    refetch: refetchDeployment,
+  } = useQuery({
+    queryKey: ['deployment', projectId],
+    queryFn: () => getLatestDeploymentByProject(projectId),
     enabled: !!projectId,
     refetchOnMount: true,
   });
@@ -293,6 +311,111 @@ export default function BuildChat() {
     }
   };
 
+  // Handle deployment to Netlify
+  const handleDeploy = async (redeploy: boolean = false) => {
+    if (!project || !selectedVersion) {
+      toast({
+        title: direction === 'rtl' ? 'خطأ' : 'Error',
+        description: direction === 'rtl' 
+          ? 'يرجى تحديد إصدار للنشر'
+          : 'Please select a version to deploy',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsDeploying(true);
+    try {
+      // Get session token for API authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      const response = await fetch('/api/deploy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
+        },
+        body: JSON.stringify({
+          projectId: project.id,
+          buildVersion: selectedVersion,
+          redeploy,
+          userId: user?.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || 'Failed to deploy');
+      }
+
+      const result = await response.json();
+      
+      // Refetch deployment
+      await refetchDeployment();
+      
+      // Invalidate deployment query to refetch
+      queryClient.invalidateQueries({ queryKey: ['deployment', projectId] });
+
+      toast({
+        title: direction === 'rtl' ? 'تم بدء النشر' : 'Deployment Started',
+        description: direction === 'rtl'
+          ? 'جاري نشر موقعك على Netlify...'
+          : 'Deploying your site to Netlify...',
+      });
+
+      // Poll for deployment status
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max (deployments can take time)
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        
+        // Refetch deployment from database via React Query
+        const queryResult = await refetchDeployment();
+        const latest = queryResult.data;
+        
+        console.log(`Polling deployment status (attempt ${attempts}/${maxAttempts}):`, latest);
+        
+        if (latest?.status === 'ready') {
+          clearInterval(pollInterval);
+          toast({
+            title: direction === 'rtl' ? 'تم النشر بنجاح!' : 'Deployed Successfully!',
+            description: direction === 'rtl'
+              ? `موقعك الآن متاح على ${latest.url}`
+              : `Your site is now live at ${latest.url}`,
+          });
+        } else if (latest?.status === 'error' || attempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          toast({
+            title: direction === 'rtl' ? 'فشل النشر' : 'Deployment Failed',
+            description: direction === 'rtl'
+              ? latest?.status === 'error' 
+                ? 'حدث خطأ أثناء النشر. يرجى المحاولة مرة أخرى.'
+                : 'استغرق النشر وقتاً طويلاً. يرجى التحقق من Netlify يدوياً.'
+              : latest?.status === 'error'
+                ? 'An error occurred during deployment. Please try again.'
+                : 'Deployment is taking longer than expected. Please check Netlify manually.',
+            variant: 'destructive',
+          });
+        }
+      }, 2000); // Poll every 2 seconds instead of 1
+
+      // Clear interval after max attempts
+      setTimeout(() => clearInterval(pollInterval), maxAttempts * 1000);
+    } catch (error) {
+      console.error('Deployment error:', error);
+      toast({
+        title: direction === 'rtl' ? 'خطأ' : 'Error',
+        description: error instanceof Error 
+          ? error.message 
+          : (direction === 'rtl' ? 'فشل في النشر' : 'Failed to deploy'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
   // Show loading only if auth is loading and not timed out
   if (authLoading && !authTimeout && !user) {
     return (
@@ -363,6 +486,65 @@ export default function BuildChat() {
                     {t('build.preview')}
                   </Link>
                 </Button>
+
+                {/* Deploy Button */}
+                {latestDeployment?.status === 'ready' && latestDeployment.url ? (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleDeploy(true)}
+                      disabled={isDeploying}
+                      className="flex items-center gap-2"
+                    >
+                      {isDeploying ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {direction === 'rtl' ? 'جاري النشر...' : 'Deploying...'}
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4" />
+                          {direction === 'rtl' ? 'إعادة النشر' : 'Redeploy'}
+                        </>
+                      )}
+                    </Button>
+                    <Button variant="default" asChild>
+                      <a
+                        href={latestDeployment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        {direction === 'rtl' ? 'عرض الموقع' : 'View Site'}
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="default"
+                    onClick={() => handleDeploy(false)}
+                    disabled={isDeploying || !selectedVersion}
+                    className="flex items-center gap-2"
+                  >
+                    {isDeploying ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {direction === 'rtl' ? 'جاري النشر...' : 'Deploying...'}
+                      </>
+                    ) : latestDeployment?.status === 'building' ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {direction === 'rtl' ? 'جاري النشر...' : 'Deploying...'}
+                      </>
+                    ) : (
+                      <>
+                        <Rocket className="h-4 w-4" />
+                        {direction === 'rtl' ? 'نشر على Netlify' : 'Deploy to Netlify'}
+                      </>
+                    )}
+                  </Button>
+                )}
               </>
             )}
           </div>

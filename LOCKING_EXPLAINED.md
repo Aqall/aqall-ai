@@ -50,3 +50,5 @@
 
 **Bottom Line:** The lock prevents **multiple operations on the same project**, regardless of who is doing it. But in practice, only the project owner can access it anyway (thanks to RLS).
 
+
+

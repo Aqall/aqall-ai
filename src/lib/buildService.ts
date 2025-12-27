@@ -201,8 +201,15 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
       cleaned = cleaned.trim() + ';';
     }
     
+    // Remove any trailing standalone component name expressions (e.g., "ComponentName;")
+    // These are often left over from export statements
+    cleaned = cleaned.replace(/^\s*[A-Z][a-zA-Z0-9]*\s*;?\s*$/gm, '');
+    
     componentCode += `\n    // ${name} component\n    ${cleaned}\n`;
   }
+  
+  // Remove any standalone component name expressions from componentCode
+  componentCode = componentCode.replace(/^\s*[A-Z][a-zA-Z0-9]*\s*;?\s*$/gm, '');
 
   // Build i18n code if bilingual - generate our own reliable implementation
   let i18nCode = '';
@@ -283,6 +290,9 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
   cleanedAppJsx = cleanedAppJsx.replace(/^export\s+/gm, '');
   cleanedAppJsx = cleanedAppJsx.replace(/\bexport\s+default\s+/g, '');
   
+  // Remove any trailing standalone expressions like "App;" that might be leftover
+  cleanedAppJsx = cleanedAppJsx.replace(/^\s*App\s*;?\s*$/gm, '');
+  
   // Check if it's a function declaration
   const hasFunction = cleanedAppJsx.includes('function App') || 
                      (cleanedAppJsx.includes('const App') && cleanedAppJsx.includes('='));
@@ -332,6 +342,7 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <title>${projectName}</title>
   ${fonts}
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
