@@ -26,6 +26,9 @@ import {
   ExternalLink,
   RefreshCw
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
+import { SuccessAnimation } from '@/components/SuccessAnimation';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
@@ -85,9 +88,12 @@ export default function BuildChat() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auth check
   useEffect(() => {
@@ -212,6 +218,27 @@ export default function BuildChat() {
     const messageContent = inputValue.trim();
     setInputValue('');
     setIsGenerating(true);
+    setGenerationProgress(0);
+    
+    // Clear any existing interval
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+    }
+    
+    // Simulate progress (since we don't have real progress from API)
+    let progressValue = 0;
+    progressIntervalRef.current = setInterval(() => {
+      progressValue += 10;
+      if (progressValue >= 90) {
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+        setGenerationProgress(90);
+        return;
+      }
+      setGenerationProgress(progressValue);
+    }, 500);
 
     try {
       // Build history from previous messages
@@ -286,6 +313,9 @@ export default function BuildChat() {
       setMessages(prev => [...prev, assistantMessage]);
       setSelectedVersion(buildResponse.version);
 
+      // Show success animation
+      setShowSuccessAnimation(true);
+
       toast({
         title: actionText,
         description: isEdit
@@ -296,13 +326,57 @@ export default function BuildChat() {
               ? `تم إنشاء الإصدار ${buildResponse.version} بنجاح`
               : `Version ${buildResponse.version} created successfully`),
       });
+      setGenerationProgress(100);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      setTimeout(() => setGenerationProgress(0), 1000);
     } catch (error) {
       console.error('Generation error:', error);
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
+      }
+      setGenerationProgress(0);
+      
+      // Improved error messages (A2)
+      let errorTitle = direction === 'rtl' ? 'خطأ' : 'Error';
+      let errorDescription = '';
+      
+      if (error instanceof Error) {
+        const errorMsg = error.message.toLowerCase();
+        
+        if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
+          errorTitle = direction === 'rtl' ? 'خطأ في الاتصال' : 'Connection Error';
+          errorDescription = direction === 'rtl'
+            ? 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.'
+            : 'Unable to connect to the server. Please check your internet connection and try again.';
+        } else if (errorMsg.includes('locked') || errorMsg.includes('processing')) {
+          errorTitle = direction === 'rtl' ? 'المشروع قيد المعالجة' : 'Project Busy';
+          errorDescription = direction === 'rtl'
+            ? 'المشروع قيد المعالجة حالياً. يرجى الانتظار قليلاً ثم المحاولة مرة أخرى.'
+            : 'The project is currently being processed. Please wait a moment and try again.';
+        } else if (errorMsg.includes('timeout')) {
+          errorTitle = direction === 'rtl' ? 'انتهت المهلة الزمنية' : 'Request Timeout';
+          errorDescription = direction === 'rtl'
+            ? 'استغرق الطلب وقتاً طويلاً. يرجى المحاولة مرة أخرى.'
+            : 'The request took too long. Please try again.';
+        } else if (errorMsg.includes('unauthorized') || errorMsg.includes('401')) {
+          errorTitle = direction === 'rtl' ? 'غير مصرح' : 'Unauthorized';
+          errorDescription = direction === 'rtl'
+            ? 'يجب عليك تسجيل الدخول أولاً.'
+            : 'You must be logged in to perform this action.';
+        } else {
+          errorDescription = error.message;
+        }
+      } else {
+        errorDescription = direction === 'rtl' ? 'فشل في إنشاء الموقع. يرجى المحاولة مرة أخرى.' : 'Failed to generate website. Please try again.';
+      }
+      
       toast({
-        title: direction === 'rtl' ? 'خطأ' : 'Error',
-        description: error instanceof Error 
-          ? error.message 
-          : (direction === 'rtl' ? 'فشل في إنشاء الموقع' : 'Failed to generate website'),
+        title: errorTitle,
+        description: errorDescription,
         variant: 'destructive',
       });
     } finally {
@@ -378,6 +452,7 @@ export default function BuildChat() {
         
         if (latest?.status === 'ready') {
           clearInterval(pollInterval);
+          setShowSuccessAnimation(true);
           toast({
             title: direction === 'rtl' ? 'تم النشر بنجاح!' : 'Deployed Successfully!',
             description: direction === 'rtl'
@@ -428,33 +503,51 @@ export default function BuildChat() {
   // Show loading overlay if project is still loading
   if (projectLoading || buildsLoading || !project) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-gradient-soft flex flex-col pt-20">
+        <div className="container mx-auto max-w-6xl px-6 py-8">
+          <Skeleton className="h-12 w-64 mb-8" />
+          <div className="space-y-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex gap-3">
+                <Skeleton className="w-9 h-9 rounded-full shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-20 w-full rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-soft flex flex-col pt-20">
+    <>
+      <SuccessAnimation 
+        show={showSuccessAnimation} 
+        message={direction === 'rtl' ? 'تم بنجاح!' : 'Success!'}
+        onComplete={() => setShowSuccessAnimation(false)}
+      />
+      <div className="min-h-screen bg-gradient-soft flex flex-col pt-20">
       {/* Header */}
-      <header className="py-4 px-6 border-b border-border bg-background/80 backdrop-blur-md sticky top-20 z-40">
-        <div className="container mx-auto max-w-6xl flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <header className="py-4 px-4 sm:px-6 border-b border-border bg-background/80 backdrop-blur-md sticky top-20 z-40">
+        <div className="container mx-auto max-w-6xl flex items-center justify-between gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <Link 
               href="/dashboard" 
-              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+              className="p-2 rounded-lg hover:bg-secondary transition-colors shrink-0"
             >
               <ArrowLeft className={`h-5 w-5 ${direction === 'rtl' ? 'rotate-180' : ''}`} />
             </Link>
-            <div>
-              <h1 className="text-xl font-bold">{project.name}</h1>
-              <p className="text-sm text-muted-foreground">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold truncate">{project.name}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 {builds.length} {t('dashboard.project.versions')}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
             {builds.length > 0 && (
               <>
                 <DropdownMenu>
@@ -552,10 +645,10 @@ export default function BuildChat() {
       </header>
 
       {/* Chat Area */}
-      <main className="flex-1 container mx-auto max-w-4xl px-6 py-6">
+      <main className="flex-1 container mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-6">
         <div 
           ref={chatContainerRef}
-          className="space-y-6 min-h-[calc(100vh-24rem)] max-h-[calc(100vh-24rem)] overflow-y-auto pb-4"
+          className="space-y-4 sm:space-y-6 min-h-[calc(100vh-20rem)] sm:min-h-[calc(100vh-24rem)] max-h-[calc(100vh-20rem)] sm:max-h-[calc(100vh-24rem)] overflow-y-auto pb-4"
         >
           {messages.length === 0 ? (
             <div className="text-center py-20">
@@ -635,10 +728,21 @@ export default function BuildChat() {
               <div className="w-9 h-9 rounded-full bg-primary-soft flex items-center justify-center">
                 <Sparkles className="h-4 w-4 text-primary animate-pulse" />
               </div>
-              <Card className="px-4 py-3 bg-primary-soft border-primary/10">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  <span className="text-sm text-primary">{t('build.generating')}</span>
+              <Card className="px-4 py-4 bg-primary-soft border-primary/10 flex-1 max-w-xl">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm text-primary font-medium">
+                      {direction === 'rtl' ? 'جاري الإنشاء...' : 'Generating your website...'}
+                    </span>
+                  </div>
+                  <Progress value={generationProgress} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    {direction === 'rtl' 
+                      ? 'يرجى الانتظار، هذا قد يستغرق دقيقة أو دقيقتين'
+                      : 'Please wait, this may take a minute or two'
+                    }
+                  </p>
                 </div>
               </Card>
             </div>
@@ -647,9 +751,9 @@ export default function BuildChat() {
       </main>
 
       {/* Input Area */}
-      <footer className="sticky bottom-0 bg-background/80 backdrop-blur-md border-t border-border py-4 px-6">
+      <footer className="sticky bottom-0 bg-background/80 backdrop-blur-md border-t border-border py-3 sm:py-4 px-4 sm:px-6">
         <div className="container mx-auto max-w-4xl">
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
             <Input
               ref={inputRef}
               value={inputValue}
@@ -678,6 +782,7 @@ export default function BuildChat() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

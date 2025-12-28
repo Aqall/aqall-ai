@@ -12,7 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { listProjects, createProject, deleteProject } from '@/lib/projectService';
 import { Plus, Folder, Clock, Trash2, Loader2, FolderOpen, Sparkles } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
+import { SuccessAnimation } from '@/components/SuccessAnimation';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +47,7 @@ export default function Dashboard() {
   const [newProjectName, setNewProjectName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [authTimeout, setAuthTimeout] = useState(false);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
   // Timeout for auth loading (prevent infinite loading)
   useEffect(() => {
@@ -93,13 +96,16 @@ export default function Dashboard() {
       setNewProjectName('');
       setDialogOpen(false);
       
+      setShowSuccessAnimation(true);
       toast({
         title: language === 'ar' ? 'تم إنشاء المشروع' : 'Project created',
         description: language === 'ar' ? 'يمكنك البدء في البناء الآن' : 'You can start building now',
       });
 
       // Navigate to the build page
-      router.push(`/build/${project.id}`);
+      setTimeout(() => {
+        router.push(`/build/${project.id}`);
+      }, 500);
     },
     onError: (error: Error) => {
       toast({
@@ -180,12 +186,18 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-mesh">
-      <main className="pt-28 pb-16 px-6">
+    <>
+      <SuccessAnimation 
+        show={showSuccessAnimation} 
+        message={language === 'ar' ? 'تم بنجاح!' : 'Success!'}
+        onComplete={() => setShowSuccessAnimation(false)}
+      />
+      <div className="min-h-screen bg-gradient-mesh">
+      <main className="pt-24 sm:pt-28 pb-12 sm:pb-16 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           {/* Header */}
           <motion.div 
-            className="flex items-center justify-between mb-10"
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 sm:mb-10"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -199,7 +211,7 @@ export default function Dashboard() {
             
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button variant="hero" className="flex items-center gap-2 shadow-lg">
+                <Button variant="hero" className="flex items-center gap-2 shadow-lg w-full sm:w-auto">
                   <Plus className="h-5 w-5" />
                   {t('dashboard.newProject')}
                 </Button>
@@ -237,9 +249,27 @@ export default function Dashboard() {
 
           {/* Projects Grid */}
           {projectsLoading && projects.length === 0 ? (
-            <div className="flex items-center justify-center py-20">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <motion.div 
+              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+            >
+              {[1, 2, 3].map((i) => (
+                <motion.div key={i} variants={fadeInUp}>
+                  <Card className="overflow-hidden">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-start justify-between">
+                        <Skeleton className="w-14 h-14 rounded-xl" />
+                        <Skeleton className="w-8 h-8 rounded-lg" />
+                      </div>
+                      <Skeleton className="h-6 w-3/4 mt-4" />
+                      <Skeleton className="h-4 w-1/2 mt-2" />
+                    </CardHeader>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
           ) : projects.length === 0 ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -308,6 +338,7 @@ export default function Dashboard() {
           )}
         </div>
       </main>
-    </div>
+      </div>
+    </>
   );
 }

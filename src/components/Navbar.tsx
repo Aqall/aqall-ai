@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { LanguageToggle } from '@/components/LanguageToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { LogOut, LayoutDashboard, Menu, X } from 'lucide-react';
 
 export function Navbar() {
@@ -39,6 +40,7 @@ export function Navbar() {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-4">
               <LanguageToggle />
+              <ThemeToggle />
               
               {user ? (
                 <>
@@ -82,8 +84,9 @@ export function Navbar() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              <div className="flex justify-center mb-4">
+              <div className="flex justify-center gap-2 mb-4">
                 <LanguageToggle />
+                <ThemeToggle />
               </div>
               {user ? (
                 <>

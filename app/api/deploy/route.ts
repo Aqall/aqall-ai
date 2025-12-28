@@ -75,11 +75,11 @@ export async function POST(request: NextRequest) {
       : await getLatestBuild(projectId);
 
     if (!build || !build.files) {
-      return NextResponse.json(
+        return NextResponse.json(
         { error: 'Build not found or has no files' },
-        { status: 404 }
-      );
-    }
+          { status: 404 }
+        );
+      }
 
     // Check if deployment already exists
     let existingDeployment = null;
@@ -222,9 +222,9 @@ export async function POST(request: NextRequest) {
         throw new Error('Failed to create deployment record');
       }
       deploymentRecord = data;
-    }
+      }
 
-    // Deploy to Netlify
+      // Deploy to Netlify
     console.log('Deploying to Netlify site:', siteId);
     console.log('ZIP buffer size:', zipBuffer.length, 'bytes');
     
@@ -271,16 +271,16 @@ export async function POST(request: NextRequest) {
       // Don't fail the request, deployment was successful
     }
 
-    return NextResponse.json({
-      success: true,
-      deployment: {
+      return NextResponse.json({
+        success: true,
+        deployment: {
         id: deploymentRecord.id,
         url: finalUrl,
         status: finalStatus,
         siteId,
         deployId: deploymentId,
-      },
-    });
+        },
+      });
   } catch (error) {
     console.error('API /api/deploy error:', error);
     

@@ -20,6 +20,7 @@ import {
   Smartphone,
   MessageSquare
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
@@ -188,8 +189,20 @@ export default function Preview() {
   // Show loading overlay if project/builds are still loading
   if (projectLoading || buildsLoading || buildLoading || !project) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-muted flex flex-col">
+        <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6">
+          <Skeleton className="h-8 w-48" />
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-9 w-32" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+        </header>
+        <main className="flex-1 p-6 flex items-center justify-center">
+          <div className="space-y-4 text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+            <Skeleton className="h-4 w-48 mx-auto" />
+          </div>
+        </main>
       </div>
     );
   }
@@ -212,22 +225,22 @@ export default function Preview() {
   return (
     <div className="min-h-screen bg-muted flex flex-col">
       {/* Header */}
-      <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6">
-        <div className="flex items-center gap-4">
+      <header className="h-auto sm:h-16 bg-background border-b border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-0">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
           <Link href={`/build/${projectId}`} className="p-2 rounded-lg hover:bg-secondary transition-colors">
             <ArrowLeft className={`h-5 w-5 ${direction === 'rtl' ? 'rotate-180' : ''}`} />
           </Link>
           <Logo size="sm" />
           <div className="h-6 w-px bg-border" />
-          <div>
-            <h1 className="text-sm font-semibold">{project.name}</h1>
+          <div className="min-w-0">
+            <h1 className="text-sm font-semibold truncate">{project.name}</h1>
             <p className="text-xs text-muted-foreground">
               {t('preview.version')} {selectedVersion}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap w-full sm:w-auto">
           {/* Viewport toggles */}
           <div className="flex items-center gap-1 p-1 bg-secondary rounded-lg">
             {(Object.keys(viewportSizes) as ViewportSize[]).map((size) => {
@@ -298,7 +311,7 @@ export default function Preview() {
       </header>
 
       {/* Preview Area */}
-      <main className="flex-1 p-6 flex items-start justify-center overflow-auto">
+      <main className="flex-1 p-3 sm:p-6 flex items-start justify-center overflow-auto">
         <div 
           className={cn(
             "bg-background rounded-xl shadow-elevated overflow-hidden transition-all duration-300",

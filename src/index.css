@@ -65,30 +65,35 @@
   }
 
   .dark {
-    --background: 220 20% 6%;
+    --background: 220 20% 10%;
     --foreground: 0 0% 98%;
     
-    --card: 220 20% 8%;
+    --card: 220 20% 12%;
     --card-foreground: 0 0% 98%;
     
-    --popover: 220 20% 8%;
+    --popover: 220 20% 12%;
     --popover-foreground: 0 0% 98%;
     
-    --primary: 187 30% 70%;
-    --primary-foreground: 220 20% 6%;
+    --primary: 187 50% 65%;
+    --primary-foreground: 220 20% 10%;
     
-    --secondary: 220 15% 15%;
+    --secondary: 220 15% 18%;
     --secondary-foreground: 0 0% 98%;
     
-    --muted: 220 15% 15%;
-    --muted-foreground: 220 10% 60%;
+    --muted: 220 15% 18%;
+    --muted-foreground: 220 10% 75%;
     
-    --accent: 187 20% 20%;
-    --accent-foreground: 187 30% 80%;
+    --accent: 187 30% 25%;
+    --accent-foreground: 187 50% 85%;
     
-    --border: 220 15% 18%;
-    --input: 220 15% 18%;
-    --ring: 187 30% 60%;
+    --border: 220 15% 22%;
+    --input: 220 15% 22%;
+    --ring: 187 50% 60%;
+    
+    /* Custom dark mode variables for better visibility */
+    --primary-light: 187 55% 75%;
+    --primary-soft: 187 30% 20%;
+    --primary-dark: 187 45% 55%;
   }
 }
 
@@ -151,9 +156,22 @@
     background: var(--gradient-soft);
   }
 
+  .dark .bg-gradient-soft {
+    background: linear-gradient(180deg, hsl(220 20% 10%) 0%, hsl(220 20% 12%) 100%);
+  }
+
   .bg-gradient-mesh {
     background-color: hsl(0 0% 100%);
     background-image: var(--gradient-mesh);
+  }
+
+  .dark .bg-gradient-mesh {
+    background-color: hsl(220 20% 10%);
+    background-image: radial-gradient(at 40% 20%, hsl(220 20% 15%) 0px, transparent 50%),
+                     radial-gradient(at 80% 0%, hsl(220 20% 15%) 0px, transparent 50%),
+                     radial-gradient(at 0% 50%, hsl(220 20% 12%) 0px, transparent 50%),
+                     radial-gradient(at 80% 50%, hsl(220 20% 15%) 0px, transparent 50%),
+                     radial-gradient(at 0% 100%, hsl(220 20% 12%) 0px, transparent 50%);
   }
 
   .bg-gradient-glow {
@@ -190,6 +208,11 @@
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border: 1px solid hsl(0 0% 100% / 0.5);
+  }
+
+  .dark .glass-strong {
+    background: hsl(220 20% 15% / 0.95);
+    border: 1px solid hsl(220 15% 25% / 0.8);
   }
 
   /* Animated gradient border */
@@ -279,6 +302,18 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  .dark .hero-title-gradient {
+    background: linear-gradient(135deg, hsl(187 60% 75%), hsl(187 65% 85%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: brightness(1.1);
+  }
+
+  .dark .text-muted-foreground {
+    color: hsl(220 10% 75%);
   }
 
   /* Arabic Hero Title */
