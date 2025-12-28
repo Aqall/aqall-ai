@@ -271,7 +271,7 @@ export default function Landing() {
       </section>
 
       {/* Features Grid */}
-      <section className="py-20 lg:py-28 px-6 bg-gradient-soft">
+      <section id="features" className="py-20 lg:py-28 px-6 bg-gradient-soft scroll-mt-20">
         <div className="container mx-auto">
           <motion.div 
             className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 max-w-5xl mx-auto"

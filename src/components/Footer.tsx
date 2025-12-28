@@ -4,24 +4,17 @@ import React from 'react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Logo } from '@/components/Logo';
-import { Github, Twitter, Linkedin } from 'lucide-react';
+import { Mail } from 'lucide-react';
 
 export function Footer() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
-  const footerLinks = {
-    product: [
-      { label: t('footer.features'), href: '#' },
-      { label: t('footer.pricing'), href: '#' },
-    ],
-    company: [
-      { label: t('footer.about'), href: '#' },
-      { label: t('footer.contact'), href: '#' },
-    ],
-    legal: [
-      { label: t('footer.privacy'), href: '#' },
-      { label: t('footer.terms'), href: '#' },
-    ],
+  const handleFeaturesClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const featuresSection = document.getElementById('features');
+    if (featuresSection) {
+      featuresSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   return (
@@ -34,30 +27,28 @@ export function Footer() {
             <p className="text-muted-foreground text-sm mb-6 max-w-xs">
               {t('footer.tagline')}
             </p>
-            <div className="flex items-center gap-3">
-              {[Twitter, Github, Linkedin].map((Icon, i) => (
-                <a
-                  key={i}
-                  href="#"
-                  className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-                >
-                  <Icon className="h-4 w-4" />
-                </a>
-              ))}
-            </div>
+            <a
+              href="mailto:Aqall.Team@gmail.com"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Mail className="h-4 w-4" />
+              Aqall.Team@gmail.com
+            </a>
           </div>
 
           {/* Product */}
           <div>
             <h4 className="font-semibold mb-4">{t('footer.product')}</h4>
             <ul className="space-y-3 text-sm">
-              {footerLinks.product.map((link, i) => (
-                <li key={i}>
-                  <Link href={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <a
+                  href="#features"
+                  onClick={handleFeaturesClick}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {t('footer.features')}
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -65,13 +56,19 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-4">{t('footer.company')}</h4>
             <ul className="space-y-3 text-sm">
-              {footerLinks.company.map((link, i) => (
-                <li key={i}>
-                  <Link href={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+                  {t('footer.about')}
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="mailto:Aqall.Team@gmail.com"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {t('footer.contact')}
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -79,20 +76,26 @@ export function Footer() {
           <div>
             <h4 className="font-semibold mb-4">{t('footer.legal')}</h4>
             <ul className="space-y-3 text-sm">
-              {footerLinks.legal.map((link, i) => (
-                <li key={i}>
-                  <Link href={link.href} className="text-muted-foreground hover:text-foreground transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+                  {t('footer.privacy')}
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">
+                  {t('footer.terms')}
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            {t('footer.copyright')}
+            {language === 'ar' 
+              ? `© ${new Date().getFullYear()} Aqall. جميع الحقوق محفوظة.`
+              : `© ${new Date().getFullYear()} Aqall. All rights reserved.`
+            }
           </p>
         </div>
       </div>
