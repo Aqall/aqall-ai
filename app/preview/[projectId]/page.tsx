@@ -116,12 +116,15 @@ export default function Preview() {
 
   // Set initial version from URL param or latest
   useEffect(() => {
+    // Only process after builds finish loading
+    if (buildsLoading) return;
+    
     if (builds.length > 0) {
       const version = versionParam ? parseInt(versionParam) : builds[0].version;
       if (version && version !== selectedVersion) {
-      setSelectedVersion(version);
+        setSelectedVersion(version);
       }
-    } else if (builds.length === 0 && !buildsLoading && project) {
+    } else if (builds.length === 0 && project) {
       // No builds found, redirect to build page
       router.push(`/build/${projectId}`);
     }

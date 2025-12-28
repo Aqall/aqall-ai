@@ -1,6 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap');
+/* Fonts are now loaded via Next.js font optimization in layout.tsx */
+/* Using CSS variables: --font-inter, --font-cairo, --font-space-grotesk */
 
 @tailwind base;
 @tailwind components;

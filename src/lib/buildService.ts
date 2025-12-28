@@ -370,25 +370,39 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
     })();
   </script>
   <script>
-    // Smooth scroll navigation
-    setTimeout(() => {
-      document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-          const href = this.getAttribute('href');
-          if (href && href !== '#' && href !== '#!') {
-            e.preventDefault();
-            const targetId = href.substring(1);
-            const targetElement = document.getElementById(targetId);
-            if (targetElement) {
-              const offset = 80;
-              const elementPosition = targetElement.getBoundingClientRect().top;
-              const offsetPosition = elementPosition + window.pageYOffset - offset;
-              window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+    // Smooth scroll navigation with browser compatibility
+    (function() {
+      if (typeof document === 'undefined' || typeof window === 'undefined') return;
+      
+      setTimeout(function() {
+        var anchors = document.querySelectorAll('a[href^="#"]');
+        for (var i = 0; i < anchors.length; i++) {
+          anchors[i].addEventListener('click', function (e) {
+            var href = this.getAttribute('href');
+            if (href && href !== '#' && href !== '#!') {
+              e.preventDefault();
+              var targetId = href.substring(1);
+              var targetElement = document.getElementById(targetId);
+              if (targetElement) {
+                var offset = 80;
+                var elementPosition = targetElement.getBoundingClientRect().top;
+                var offsetPosition = elementPosition + (window.pageYOffset || window.scrollY || 0) - offset;
+                
+                // Use smooth scroll with fallback
+                if (window.scrollTo && typeof window.scrollTo === 'function') {
+                  if ('scrollBehavior' in document.documentElement.style) {
+                    window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+                  } else {
+                    // Fallback for browsers without smooth scroll support
+                    window.scrollTo(0, offsetPosition);
+                  }
+                }
+              }
             }
-          }
-        });
-      });
-    }, 1000);
+          });
+        }
+      }, 1000);
+    })();
   </script>
 </body>
 </html>`;

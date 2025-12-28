@@ -254,7 +254,9 @@ export default function BuildChat() {
       const apiEndpoint = hasExistingBuilds ? '/api/edit' : '/api/generate';
 
       // Call API endpoint (edit if builds exist, generate if new)
-      const response = await fetch(apiEndpoint, {
+      let response;
+      try {
+        response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -264,28 +266,66 @@ export default function BuildChat() {
           message: messageContent,
           history,
         }),
-      });
+        });
+      } catch (fetchError) {
+        // Handle network failures
+        if (fetchError instanceof TypeError) {
+          throw new Error(direction === 'rtl'
+            ? 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.'
+            : 'Network error: Unable to connect to server. Please check your internet connection and try again.');
+        }
+        throw fetchError;
+      }
 
       if (!response.ok) {
-        const errorData = await response.json();
-        const errorMessage = errorData.message || errorData.error || 'Failed to generate website';
-        
-        // Handle project locked error specifically
-        if (errorData.code === 'PROJECT_LOCKED' || response.status === 409) {
-          toast({
-            title: direction === 'rtl' ? 'المشروع قيد المعالجة' : 'Project Busy',
-            description: direction === 'rtl' 
-              ? 'المشروع قيد المعالجة حالياً. يرجى الانتظار حتى اكتمال العملية الحالية.'
-              : 'The project is currently being processed. Please wait for the current operation to complete.',
-            variant: 'destructive',
-          });
-          throw new Error(errorMessage);
+        // Try to parse error response as JSON, fallback to text if it fails
+        let errorMessage = 'Failed to generate website';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          
+          // Handle project locked error specifically
+          if (errorData.code === 'PROJECT_LOCKED' || response.status === 409) {
+            toast({
+              title: direction === 'rtl' ? 'المشروع قيد المعالجة' : 'Project Busy',
+              description: direction === 'rtl' 
+                ? 'المشروع قيد المعالجة حالياً. يرجى الانتظار حتى اكتمال العملية الحالية.'
+                : 'The project is currently being processed. Please wait for the current operation to complete.',
+              variant: 'destructive',
+            });
+            throw new Error(errorMessage);
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, try to get text response
+          try {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          } catch {
+            // If text parsing also fails, use status-based message
+            if (response.status === 429) {
+              errorMessage = direction === 'rtl' 
+                ? 'تم تجاوز الحد الأقصى للطلبات. يرجى الانتظار قليلاً والمحاولة مرة أخرى.'
+                : 'Rate limit exceeded. Please wait a moment and try again.';
+            } else if (response.status >= 500) {
+              errorMessage = direction === 'rtl'
+                ? 'خطأ في الخادم. يرجى المحاولة مرة أخرى لاحقاً.'
+                : 'Server error. Please try again later.';
+            }
+          }
         }
         
         throw new Error(errorMessage);
       }
 
-      const buildResponse: BuildResponse = await response.json();
+      // Parse successful response
+      let buildResponse: BuildResponse;
+      try {
+        buildResponse = await response.json();
+      } catch (parseError) {
+        throw new Error(direction === 'rtl' 
+          ? 'استجابة غير صالحة من الخادم'
+          : 'Invalid response from server');
+      }
 
       // Invalidate builds query to refetch
       queryClient.invalidateQueries({ queryKey: ['builds', projectId] });
@@ -404,7 +444,9 @@ export default function BuildChat() {
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
 
-      const response = await fetch('/api/deploy', {
+      let response;
+      try {
+        response = await fetch('/api/deploy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -416,14 +458,50 @@ export default function BuildChat() {
           redeploy,
           userId: user?.id,
         }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Failed to deploy');
+        });
+      } catch (fetchError) {
+        // Handle network failures
+        if (fetchError instanceof TypeError) {
+          throw new Error(direction === 'rtl'
+            ? 'فشل الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.'
+            : 'Network error: Unable to connect to server. Please check your internet connection and try again.');
+        }
+        throw fetchError;
       }
 
-      const result = await response.json();
+      if (!response.ok) {
+        // Try to parse error response as JSON, fallback to text
+        let errorMessage = 'Failed to deploy';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch {
+          try {
+            errorMessage = await response.text() || errorMessage;
+          } catch {
+            if (response.status === 429) {
+              errorMessage = direction === 'rtl' 
+                ? 'تم تجاوز الحد الأقصى للطلبات. يرجى الانتظار قليلاً.'
+                : 'Rate limit exceeded. Please wait a moment.';
+            } else if (response.status >= 500) {
+              errorMessage = direction === 'rtl'
+                ? 'خطأ في الخادم. يرجى المحاولة مرة أخرى لاحقاً.'
+                : 'Server error. Please try again later.';
+            }
+          }
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Parse successful response
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        throw new Error(direction === 'rtl' 
+          ? 'استجابة غير صالحة من الخادم'
+          : 'Invalid response from server');
+      }
       
       // Refetch deployment
       await refetchDeployment();

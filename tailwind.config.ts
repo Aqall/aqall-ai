@@ -61,8 +61,11 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
-        arabic: ['Cairo', '"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-space-grotesk)', 'var(--font-inter)', 'system-ui', 'sans-serif'],
+        arabic: ['var(--font-cairo)', 'var(--font-space-grotesk)', 'var(--font-inter)', 'system-ui', 'sans-serif'],
+        inter: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        cairo: ['var(--font-cairo)', 'system-ui', 'sans-serif'],
+        'space-grotesk': ['var(--font-space-grotesk)', 'system-ui', 'sans-serif'],
       },
       keyframes: {
         "accordion-down": {

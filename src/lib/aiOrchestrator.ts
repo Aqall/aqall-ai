@@ -511,7 +511,22 @@ export async function generateSiteFromPrompt(args: {
     console.error('OpenAI API error:', error);
     
     if (error instanceof OpenAI.APIError) {
+      // Handle specific OpenAI error types
+      if (error.status === 429) {
+        throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+      } else if (error.status === 401) {
+        throw new Error('OpenAI API key is invalid or expired.');
+      } else if (error.status === 402 || error.status === 403) {
+        throw new Error('OpenAI API quota exceeded or access denied. Please check your account.');
+      } else if (error.status === 500 || error.status === 502 || error.status === 503) {
+        throw new Error('OpenAI service is temporarily unavailable. Please try again later.');
+      }
       throw new Error(`OpenAI API error: ${error.message}`);
+    }
+    
+    // Handle network errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Network error: Unable to reach OpenAI API. Please check your internet connection.');
     }
     
     throw new Error(`Failed to generate website: ${error instanceof Error ? error.message : 'Unknown error'}`);

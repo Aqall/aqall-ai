@@ -15,26 +15,44 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('light');
 
   useEffect(() => {
-    // Load theme from localStorage
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme === 'light' || savedTheme === 'dark') {
-      setThemeState(savedTheme);
+    // Load theme from localStorage with error handling
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const savedTheme = localStorage.getItem('theme') as Theme | null;
+        if (savedTheme === 'light' || savedTheme === 'dark') {
+          setThemeState(savedTheme);
+        }
+      }
+    } catch (error) {
+      // localStorage may be disabled or unavailable (private browsing, old browsers)
+      console.warn('Unable to access localStorage for theme:', error);
     }
   }, []);
 
   useEffect(() => {
-    const root = window.document.documentElement;
-    
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    // Apply theme to document with browser check
+    if (typeof window !== 'undefined' && window.document) {
+      const root = window.document.documentElement;
+      
+      if (theme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
     }
   }, [theme]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem('theme', newTheme);
+    // Save to localStorage with error handling
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('theme', newTheme);
+      }
+    } catch (error) {
+      // localStorage may be disabled or unavailable
+      console.warn('Unable to save theme to localStorage:', error);
+    }
   };
 
   return (

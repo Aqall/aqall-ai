@@ -184,16 +184,30 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const direction: Direction = language === 'ar' ? 'rtl' : 'ltr';
 
   useEffect(() => {
-    const saved = localStorage.getItem('aqall-language') as Language;
-    if (saved && (saved === 'en' || saved === 'ar')) {
-      setLanguageState(saved);
+    // Load language from localStorage with error handling
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = localStorage.getItem('aqall-language') as Language;
+        if (saved && (saved === 'en' || saved === 'ar')) {
+          setLanguageState(saved);
+        }
+      }
+    } catch (error) {
+      // localStorage may be disabled or unavailable (private browsing, old browsers)
+      console.warn('Unable to access localStorage for language:', error);
     }
   }, []);
 
   useEffect(() => {
-    // Set dir and lang on html element (handled by HtmlDirectionSetter in Next.js)
-    // But we still update localStorage
-    localStorage.setItem('aqall-language', language);
+    // Save language to localStorage with error handling
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('aqall-language', language);
+      }
+    } catch (error) {
+      // localStorage may be disabled or unavailable
+      console.warn('Unable to save language to localStorage:', error);
+    }
   }, [language, direction]);
 
   const setLanguage = (lang: Language) => {

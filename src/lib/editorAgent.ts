@@ -300,20 +300,40 @@ Return a JSON object:
     { role: 'user', content: `Current file content:\n\`\`\`\n${currentContent}\n\`\`\`\n\nUser request: "${userPrompt}"\n\nGenerate a MINIMAL patch that changes ONLY what was requested. Do NOT modify any other parts of the file.` }
   ];
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages,
-    temperature: 0.2,
-    response_format: { type: 'json_object' },
-  });
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+    });
 
-  const content = completion.choices[0]?.message?.content?.trim() || '{}';
-  const result = JSON.parse(content);
-  
-  return {
-    diff: result.diff || '',
-    summary: result.summary || 'File modified',
-  };
+    const content = completion.choices[0]?.message?.content?.trim() || '{}';
+    let result;
+    try {
+      result = JSON.parse(content);
+    } catch (parseError) {
+      console.error('Failed to parse patch JSON:', parseError);
+      throw new Error('Failed to parse AI response. Please try again.');
+    }
+    
+    return {
+      diff: result.diff || '',
+      summary: result.summary || 'File modified',
+    };
+  } catch (error) {
+    if (error instanceof OpenAI.APIError) {
+      if (error.status === 429) {
+        throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+      } else if (error.status === 401) {
+        throw new Error('OpenAI API key is invalid.');
+      } else if (error.status === 402 || error.status === 403) {
+        throw new Error('OpenAI API quota exceeded. Please check your account.');
+      }
+      throw new Error(`OpenAI API error: ${error.message}`);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -363,11 +383,20 @@ Return a JSON object:
     });
 
     const content = completion.choices[0]?.message?.content?.trim() || '{}';
-    const result = JSON.parse(content);
+    let result;
+    try {
+      result = JSON.parse(content);
+    } catch (parseError) {
+      console.error(`Failed to parse regenerated file JSON for ${filePath}:`, parseError);
+      return null;
+    }
     
     return result.content || null;
   } catch (error) {
     console.error(`Error regenerating file ${filePath}:`, error);
+    if (error instanceof OpenAI.APIError) {
+      console.error(`OpenAI API error (${error.status}): ${error.message}`);
+    }
     return null;
   }
 }

@@ -17,17 +17,23 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 /**
  * Create a server-side Supabase client for API routes
- * Reads auth session from cookies in the request
+ * Reads auth session from Authorization header (preferred) or cookies (fallback)
  */
 export function createServerSupabaseClient(request: NextRequest) {
-  // Try to get the access token from cookies
-  const cookieHeader = request.headers.get('cookie') || '';
-  const cookies = parseCookies(cookieHeader);
+  // First, try to get access token from Authorization header (preferred method)
+  const authHeader = request.headers.get('authorization');
+  let accessToken = authHeader?.replace('Bearer ', '') || null;
   
-  // Get Supabase auth token from cookies
-  const accessToken = cookies['sb-access-token'] || 
-                     cookies[`sb-${supabaseUrl.split('//')[1]?.split('.')[0]}-auth-token`] ||
-                     extractTokenFromCookie(cookieHeader);
+  // Fallback to cookies if no Authorization header
+  if (!accessToken) {
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookies = parseCookies(cookieHeader);
+    
+    // Get Supabase auth token from cookies
+    accessToken = cookies['sb-access-token'] || 
+                 cookies[`sb-${supabaseUrl.split('//')[1]?.split('.')[0]}-auth-token`] ||
+                 extractTokenFromCookie(cookieHeader);
+  }
   
   // Create Supabase client
   const client = createClient(supabaseUrl, supabaseAnonKey, {

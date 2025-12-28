@@ -8,15 +8,43 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateSiteFromPrompt } from '@/lib/pipelineService';
 import { createBuild } from '@/lib/buildService';
 import { lockProject, unlockProject } from '@/lib/buildLockService';
+import { createServerSupabaseClient } from '@/lib/supabaseServer';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 60 seconds max for OpenAI API calls
+
+// Validate UUID format
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
 
 export async function POST(request: NextRequest) {
   let projectId: string | null = null;
   
   try {
-    const body = await request.json();
+    // Authenticate user
+    const supabase = createServerSupabaseClient(request);
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in to continue.' },
+        { status: 401 }
+      );
+    }
+
+    // Parse request body with error handling
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
+    
     const { projectId: bodyProjectId, message, history } = body;
     projectId = bodyProjectId;
 
@@ -28,6 +56,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate projectId format (should be UUID)
+    if (typeof projectId !== 'string' || !isValidUUID(projectId)) {
+      return NextResponse.json(
+        { error: 'Invalid project ID format' },
+        { status: 400 }
+      );
+    }
+
+    // Validate message
     if (typeof message !== 'string' || message.trim().length === 0) {
       return NextResponse.json(
         { error: 'Message must be a non-empty string' },
@@ -35,11 +72,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Try to lock the project
-    // Note: We use a placeholder user_id since getting it requires proper auth context
-    // The lock mechanism works on build_status, and RLS will enforce ownership when we try to update
-    // If locking fails, we'll proceed anyway (lock is best-effort, RLS provides the real security)
-    const lockAcquired = await lockProject(projectId, 'api-route');
+    // Validate message length (prevent extremely long messages)
+    if (message.length > 10000) {
+      return NextResponse.json(
+        { error: 'Message is too long. Maximum 10,000 characters allowed.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate history if provided
+    if (history && (!Array.isArray(history) || history.length > 50)) {
+      return NextResponse.json(
+        { error: 'Invalid history format or too many history entries (max 50)' },
+        { status: 400 }
+      );
+    }
+
+    // Verify project ownership using authenticated client (RLS will enforce)
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('id, user_id')
+      .eq('id', projectId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (projectError || !project) {
+      return NextResponse.json(
+        { error: 'Project not found or unauthorized' },
+        { status: 404 }
+      );
+    }
+
+    // Try to lock the project (now with authenticated user)
+    const lockAcquired = await lockProject(projectId, user.id);
     if (!lockAcquired) {
       return NextResponse.json(
         { 

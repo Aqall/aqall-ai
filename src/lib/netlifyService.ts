@@ -100,7 +100,7 @@ export async function deployToNetlify(
     headers: {
       'Authorization': `Bearer ${NETLIFY_API_TOKEN}`,
     },
-    body: formData,
+    body: formData as any, // form-data package FormData is compatible but TypeScript doesn't recognize it
   });
 
   if (!response.ok) {
@@ -143,7 +143,7 @@ export async function deployZipToNetlify(
         'Authorization': `Bearer ${NETLIFY_API_TOKEN}`,
         'Content-Type': 'application/zip',
       },
-      body: buffer,
+      body: buffer as any, // Buffer is compatible with fetch BodyInit but TypeScript doesn't recognize it
     });
 
     if (response.ok) {
