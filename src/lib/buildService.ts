@@ -52,11 +52,38 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
   const indexCss = files['src/index.css'] || '';
   const packageJson = files['package.json'] || '{}';
   
+  // Validate essential files exist
+  if (!appJsx || appJsx.trim().length === 0) {
+    console.warn('Warning: App.jsx is empty or missing - will use fallback');
+  }
+  
   // Get all component files
   const components: Record<string, string> = {};
   for (const [path, content] of Object.entries(files)) {
     if (path.startsWith('src/components/') && path.endsWith('.jsx')) {
-      const componentName = path.replace('src/components/', '').replace('.jsx', '');
+      // Extract component name from path
+      // File path: "src/components/HistoryTimeline.jsx" -> componentName: "HistoryTimeline"
+      let componentName = path.replace('src/components/', '').replace('.jsx', '');
+      
+      // Only sanitize if there are path separators (slashes, dashes, underscores)
+      // e.g., "Features/services" -> "FeaturesServices"
+      // But preserve normal component names like "HistoryTimeline" as-is
+      if (/[\/\\\-_]/.test(componentName)) {
+        // Has separators - split and convert each part to PascalCase
+        componentName = componentName
+          .split(/[\/\\\-_]+/)
+          .map(part => {
+            // Capitalize first letter, preserve rest (don't force lowercase)
+            return part.charAt(0).toUpperCase() + part.slice(1);
+          })
+          .join('');
+      } else {
+        // No separators - preserve the name as-is (already PascalCase)
+        // Just ensure it starts with uppercase letter
+        if (componentName.length > 0 && componentName[0] !== componentName[0].toUpperCase()) {
+          componentName = componentName.charAt(0).toUpperCase() + componentName.slice(1);
+        }
+      }
       components[componentName] = content;
     }
   }
@@ -153,25 +180,49 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
       return match;
     });
     
+    // Ensure component name matches the expected format (name is already sanitized)
+    // Use the sanitized name directly (it's already PascalCase)
+    const componentName = name; // name is already sanitized to PascalCase
+    
+    // Fix invalid component names in the code FIRST (e.g., "Features/services" -> "FeaturesServices")
+    // Match patterns like: const Features/services =, function Features/services(, etc.
+    cleaned = cleaned.replace(/const\s+([\w\/\-_]+)\s*=\s*\([^)]*\)\s*=>/g, (match, varName) => {
+      // If the variable name contains invalid characters, replace with sanitized component name
+      if (/[\/\\\-_]/.test(varName)) {
+        return match.replace(varName, componentName);
+      }
+      return match;
+    });
+    cleaned = cleaned.replace(/const\s+([\w\/\-_]+)\s*=\s*\(\)\s*=>/g, (match, varName) => {
+      if (/[\/\\\-_]/.test(varName)) {
+        return match.replace(varName, componentName);
+      }
+      return match;
+    });
+    cleaned = cleaned.replace(/function\s+([\w\/\-_]+)\s*\(/g, (match, funcName) => {
+      if (/[\/\\\-_]/.test(funcName)) {
+        return match.replace(funcName, componentName);
+      }
+      return match;
+    });
+    
     // Check if it's already a function (arrow function or function declaration)
+    // Do this AFTER fixing invalid names so we can detect functions correctly
     const hasArrowFunction = /const\s+\w+\s*=\s*\([^)]*\)\s*=>/.test(cleaned) || 
                             /const\s+\w+\s*=\s*\(\)\s*=>/.test(cleaned);
     const hasFunctionDeclaration = /function\s+\w+\s*\(/.test(cleaned);
     const isFunction = hasArrowFunction || hasFunctionDeclaration;
     
-    // Ensure component name matches the expected format
-    const capitalized = name.charAt(0).toUpperCase() + name.slice(1);
-    
-    // If it's already a valid function (arrow or declaration), keep it as is
+    // If it's already a valid function (arrow or declaration), ensure name matches
     if (isFunction) {
       // Ensure the component name matches (fix if needed)
       if (hasArrowFunction) {
-        // Fix arrow function name if it doesn't match
-        cleaned = cleaned.replace(/const\s+\w+\s*=\s*\([^)]*\)\s*=>/, `const ${capitalized} = () =>`);
-        cleaned = cleaned.replace(/const\s+\w+\s*=\s*\(\)\s*=>/, `const ${capitalized} = () =>`);
+        // Fix arrow function name to use sanitized component name
+        cleaned = cleaned.replace(/const\s+[\w\/\-_]+\s*=\s*\([^)]*\)\s*=>/, `const ${componentName} = () =>`);
+        cleaned = cleaned.replace(/const\s+[\w\/\-_]+\s*=\s*\(\)\s*=>/, `const ${componentName} = () =>`);
       } else if (hasFunctionDeclaration) {
-        // Fix function declaration name if it doesn't match
-        cleaned = cleaned.replace(/function\s+\w+\s*\(/, `function ${capitalized}(`);
+        // Fix function declaration name to use sanitized component name
+        cleaned = cleaned.replace(/function\s+[\w\/\-_]+\s*\(/, `function ${componentName}(`);
       }
     } else {
       // If it starts with 'return' or JSX, it needs a function wrapper
@@ -189,10 +240,10 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
         }
         
         // Wrap in arrow function
-        cleaned = `const ${capitalized} = () => {\n  return (\n    ${returnValue}\n  );\n};`;
+        cleaned = `const ${componentName} = () => {\n  return (\n    ${returnValue}\n  );\n};`;
       } else if (!isFunction) {
         // If it doesn't look like a function, create a basic one
-        cleaned = `const ${capitalized} = () => {\n  return (\n    <div>Component ${capitalized}</div>\n  );\n};`;
+        cleaned = `const ${componentName} = () => {\n  return (\n    <div>Component ${componentName}</div>\n  );\n};`;
       }
     }
     
@@ -299,7 +350,10 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
   
   // If it starts with 'return' or JSX, wrap it in a function
   if (!hasFunction) {
-    if (cleanedAppJsx.trim().startsWith('return') || 
+    if (cleanedAppJsx.trim().length === 0) {
+      // Empty App.jsx - create a basic fallback
+      cleanedAppJsx = `function App() {\n  return (\n    <div style="padding: 2rem; text-align: center;"><h1>Welcome</h1><p>App component is being initialized...</p></div>\n  );\n}`;
+    } else if (cleanedAppJsx.trim().startsWith('return') || 
         cleanedAppJsx.trim().startsWith('(') || 
         cleanedAppJsx.trim().startsWith('<')) {
       let returnValue = cleanedAppJsx;
@@ -312,7 +366,7 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
       cleanedAppJsx = `function App() {\n  return (\n    ${returnValue}\n  );\n}`;
     } else if (!cleanedAppJsx.includes('function') && !cleanedAppJsx.includes('const')) {
       // Fallback: create a basic App function
-      cleanedAppJsx = `function App() {\n  return (\n    <div>App Component</div>\n  );\n}`;
+      cleanedAppJsx = `function App() {\n  return (\n    <div style="padding: 2rem; text-align: center;"><h1>App Component</h1><p>Content is loading...</p></div>\n  );\n}`;
     }
   }
 
@@ -354,20 +408,159 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
     html { scroll-behavior: smooth; }
     body { ${fontFamily} }
     * { font-family: inherit; }
+    #error-display {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 1rem;
+      border-bottom: 2px solid #dc2626;
+      z-index: 9999;
+      font-family: monospace;
+      font-size: 0.875rem;
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+    #error-display.show {
+      display: block;
+    }
+    #error-close {
+      float: right;
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 0.25rem 0.75rem;
+      cursor: pointer;
+      border-radius: 0.25rem;
+    }
+    #error-close:hover {
+      background: #b91c1c;
+    }
   </style>
 </head>
 <body class="antialiased" style="${fontFamily}">
+  <div id="error-display">
+    <button id="error-close" onclick="document.getElementById('error-display').classList.remove('show')">✕</button>
+    <div><strong>Error:</strong> <span id="error-message"></span></div>
+    <details style="margin-top: 0.5rem;">
+      <summary style="cursor: pointer;">Stack trace</summary>
+      <pre id="error-stack" style="margin-top: 0.5rem; white-space: pre-wrap; word-wrap: break-word;"></pre>
+    </details>
+  </div>
   <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useEffect, createContext, useContext } = React;
-    ${i18nCode}
-    ${componentCode}
-    ${cleanedAppJsx}
+  <script>
+    // Global error handler
+    window.addEventListener('error', function(event) {
+      console.error('Global error:', event.error);
+      var errorDisplay = document.getElementById('error-display');
+      var errorMessage = document.getElementById('error-message');
+      var errorStack = document.getElementById('error-stack');
+      
+      if (errorDisplay && errorMessage) {
+        var message = event.message || 'Unknown error';
+        if (event.error && event.error.message) {
+          message = event.error.message;
+        }
+        errorMessage.textContent = message;
+        
+        if (errorStack && event.error && event.error.stack) {
+          errorStack.textContent = event.error.stack;
+        } else if (errorStack) {
+          errorStack.textContent = 'No stack trace available';
+        }
+        
+        errorDisplay.classList.add('show');
+      }
+      
+      // Prevent default error display
+      event.preventDefault();
+      return false;
+    });
     
-    // Initialize app
-    (function() {
-      ${cleanedMainJsx}
-    })();
+    // Catch unhandled promise rejections
+    window.addEventListener('unhandledrejection', function(event) {
+      console.error('Unhandled promise rejection:', event.reason);
+      var errorDisplay = document.getElementById('error-display');
+      var errorMessage = document.getElementById('error-message');
+      var errorStack = document.getElementById('error-stack');
+      
+      if (errorDisplay && errorMessage) {
+        var message = 'Unhandled promise rejection: ';
+        if (event.reason instanceof Error) {
+          message += event.reason.message;
+        } else {
+          message += String(event.reason);
+        }
+        errorMessage.textContent = message;
+        
+        if (errorStack && event.reason instanceof Error && event.reason.stack) {
+          errorStack.textContent = event.reason.stack;
+        } else if (errorStack) {
+          errorStack.textContent = String(event.reason);
+        }
+        
+        errorDisplay.classList.add('show');
+      }
+      
+      event.preventDefault();
+    });
+  </script>
+  <script type="text/babel">
+    try {
+      const { useState, useEffect, createContext, useContext } = React;
+      ${i18nCode}
+      ${componentCode}
+      ${cleanedAppJsx}
+      
+      // Initialize app
+      (function() {
+        try {
+          ${cleanedMainJsx}
+        } catch (initError) {
+          console.error('Error initializing app:', initError);
+          var errorDisplay = document.getElementById('error-display');
+          var errorMessage = document.getElementById('error-message');
+          var errorStack = document.getElementById('error-stack');
+          
+          if (errorDisplay && errorMessage) {
+            errorMessage.textContent = initError.message || 'Failed to initialize app';
+            if (errorStack && initError.stack) {
+              errorStack.textContent = initError.stack;
+            }
+            errorDisplay.classList.add('show');
+          }
+          
+          // Render error component as fallback
+          const root = document.getElementById('root');
+          if (root) {
+            root.innerHTML = '<div style="padding: 2rem; text-align: center;"><h1 style="color: #dc2626;">Error Loading App</h1><p>' + (initError.message || 'Unknown error') + '</p></div>';
+          }
+          throw initError;
+        }
+      })();
+    } catch (babelError) {
+      console.error('Error in Babel script:', babelError);
+      var errorDisplay = document.getElementById('error-display');
+      var errorMessage = document.getElementById('error-message');
+      var errorStack = document.getElementById('error-stack');
+      
+      if (errorDisplay && errorMessage) {
+        errorMessage.textContent = babelError.message || 'Failed to compile/run code';
+        if (errorStack && babelError.stack) {
+          errorStack.textContent = babelError.stack;
+        }
+        errorDisplay.classList.add('show');
+      }
+      
+      // Render error component as fallback
+      const root = document.getElementById('root');
+      if (root) {
+        root.innerHTML = '<div style="padding: 2rem; text-align: center;"><h1 style="color: #dc2626;">Compilation Error</h1><p>' + (babelError.message || 'Unknown error') + '</p></div>';
+      }
+    }
   </script>
   <script>
     // Smooth scroll navigation with browser compatibility

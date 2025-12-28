@@ -253,6 +253,10 @@ export default function BuildChat() {
       const hasExistingBuilds = builds && builds.length > 0;
       const apiEndpoint = hasExistingBuilds ? '/api/edit' : '/api/generate';
 
+      // Get session token for API authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
       // Call API endpoint (edit if builds exist, generate if new)
       let response;
       try {
@@ -260,6 +264,7 @@ export default function BuildChat() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(accessToken && { 'Authorization': `Bearer ${accessToken}` }),
         },
         body: JSON.stringify({
           projectId: project.id,

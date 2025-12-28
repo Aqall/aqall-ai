@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { editSiteFromPrompt } from '@/lib/editService';
 import { lockProject, unlockProject } from '@/lib/buildLockService';
 import { createServerSupabaseClient } from '@/lib/supabaseServer';
+import { getConversationHistoryForAI, saveMessage } from '@/lib/conversationService';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 60 seconds max for OpenAI API calls
@@ -123,13 +124,39 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      // Load conversation history from database for context
+      // Use provided history if available (for backward compatibility), otherwise load from DB
+      let conversationHistory = history || [];
+      if (!history || history.length === 0) {
+        // Load from database - use authenticated client
+        const historyMessages = await getConversationHistoryForAI(projectId, 30);
+        conversationHistory = historyMessages;
+      }
+
+      // Save user message to conversation history
+      await saveMessage({
+        projectId,
+        role: 'user',
+        content: message.trim(),
+      });
+
       // Edit website using Editor Agent
       const result = await editSiteFromPrompt({
         projectId,
         message: message.trim(),
-        history: history || [],
+        history: conversationHistory,
         buildVersion: buildVersion || undefined,
       });
+
+      // Save assistant response to conversation history
+      if (result.success) {
+        await saveMessage({
+          projectId,
+          role: 'assistant',
+          content: result.summary || 'Website edited successfully',
+          buildVersion: result.version,
+        });
+      }
 
       return NextResponse.json({
         success: result.success,

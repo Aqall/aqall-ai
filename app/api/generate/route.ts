@@ -9,6 +9,7 @@ import { generateSiteFromPrompt } from '@/lib/pipelineService';
 import { createBuild } from '@/lib/buildService';
 import { lockProject, unlockProject } from '@/lib/buildLockService';
 import { createServerSupabaseClient } from '@/lib/supabaseServer';
+import { getConversationHistoryForAI, saveMessage, saveMessages } from '@/lib/conversationService';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // 60 seconds max for OpenAI API calls
@@ -116,11 +117,27 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+      // Load conversation history from database for context
+      // Use provided history if available (for backward compatibility), otherwise load from DB
+      let conversationHistory = history || [];
+      if (!history || history.length === 0) {
+        // Load from database - use authenticated client
+        const historyMessages = await getConversationHistoryForAI(projectId, 30);
+        conversationHistory = historyMessages;
+      }
+
+      // Save user message to conversation history
+      await saveMessage({
+        projectId,
+        role: 'user',
+        content: message.trim(),
+      });
+
       // Generate website using Lovable-style pipeline (Planner → Architect → Coder)
       const result = await generateSiteFromPrompt({
         projectId,
         message: message.trim(),
-        history: history || [],
+        history: conversationHistory,
       });
 
       // Create build with files
@@ -130,6 +147,14 @@ export async function POST(request: NextRequest) {
         files: result.files,
         summary: result.summary,
         languageMode: result.languageMode,
+      });
+
+      // Save assistant response to conversation history
+      await saveMessage({
+        projectId,
+        role: 'assistant',
+        content: result.summary,
+        buildVersion: buildResult.version,
       });
 
       return NextResponse.json({
