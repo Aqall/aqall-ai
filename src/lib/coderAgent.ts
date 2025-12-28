@@ -432,7 +432,7 @@ async function generateEntryFile(
 - Return ONLY the file content, no markdown.`;
   } else if (fileName === 'App.jsx') {
     // Use architecture.components as source of truth
-    const componentNames = architecture.components.filter(name => name.length > 0);
+    let componentNames = architecture.components.filter(name => name.length > 0);
     
     if (componentNames.length === 0) {
       // Fallback: derive from plan.requiredSections
@@ -445,6 +445,35 @@ async function generateEntryFile(
       const fallbackNames = plan.requiredSections.map(s => sectionToComponentName(s));
       componentNames.push(...fallbackNames);
     }
+    
+    // Sort components in logical order: Navbar -> Hero -> About -> Features -> Gallery -> Contact -> Footer
+    // Any other components go in the middle (after Features, before Gallery if possible, or after Gallery but before Contact/Footer)
+    const componentOrder = [
+      'Navbar',
+      'Hero',
+      'About',
+      'Features',
+      'Services',
+      'Gallery',
+      'Contact',
+      'Footer'
+    ];
+    
+    // Function to get sort order (lower number = earlier in list)
+    function getComponentOrder(componentName: string): number {
+      const index = componentOrder.indexOf(componentName);
+      if (index !== -1) return index;
+      // Components not in the predefined order go after Features but before Gallery, or after Gallery but before Contact/Footer
+      // Put them at position 4.5 (between Features and Gallery) by default
+      return 4.5;
+    }
+    
+    // Sort components
+    componentNames.sort((a, b) => {
+      const orderA = getComponentOrder(a);
+      const orderB = getComponentOrder(b);
+      return orderA - orderB;
+    });
     
     const componentImports = componentNames
       .map(c => `import ${c} from './components/${c}.jsx';`)
