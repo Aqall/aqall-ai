@@ -106,9 +106,9 @@ Return ONLY valid JSON, no markdown, no code blocks.`;
   } else if (fileName === 'index.html') {
     // Always bilingual - include both English and Arabic fonts
     const fontLinks: string[] = [];
-    fontLinks.push('<link rel="preconnect" href="https://fonts.googleapis.com">');
-    fontLinks.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
-    fontLinks.push('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">');
+      fontLinks.push('<link rel="preconnect" href="https://fonts.googleapis.com">');
+      fontLinks.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
+      fontLinks.push('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">');
     fontLinks.push('<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">');
     const fontLinksHtml = fontLinks.join('\n    ');
     
@@ -286,14 +286,16 @@ CRITICAL: All websites support BOTH English and Arabic with a language toggle bu
   - CORRECT: <div>{t('comparison.goals')}</div> <div>{t('comparison.assists')}</div>
   - WRONG: <div>{t('comparison')}</div> (this returns an object and causes errors)
 - For arrays (like menu items, links, features list):
-  - In JSON, arrays must be actual arrays: { "footer": { "links": ["Home", "About", "Contact"] } }
-  - Component MUST use defensive code: {(Array.isArray(t('footer.links')) ? t('footer.links') : []).map(...)}
+  - In JSON, arrays must be actual arrays: { "navbar": { "links": ["Home", "About", "Contact"] } }
+  - Component MUST use defensive code: {(Array.isArray(t('navbar.links')) ? t('navbar.links') : []).map(...)}
+  - NOTE: Footer should NOT have links - use navbar.links instead
   - ALWAYS check if the value is an array before calling .map() to prevent errors
   - Pattern: {(Array.isArray(t('key')) ? t('key') : []).map(...)} or {(t('key') || []).map(...)} if you're sure it's always an array
   - BUT: Ensure the translation JSON has arrays, not objects - both English AND Arabic must use arrays
   - If you need structured data, use array of objects: { "links": [{ "label": "Home", "href": "#" }, ...] }
-  - Then access: {(Array.isArray(t('footer.links')) ? t('footer.links') : []).map(link => ...)}
-  - Common array keys: features.list, features.items, navbar.links, footer.links, services, gallery.items
+  - Then access: {(Array.isArray(t('navbar.links')) ? t('navbar.links') : []).map(link => ...)}
+  - NOTE: Footer should NOT have links - use navbar.links instead
+  - Common array keys: features.list, features.items, navbar.links, services, gallery.items
 - Translation structure in JSON: { "comparison": { "title": "...", "goals": "...", "assists": "..." } }
 - Component must access: t('comparison.title'), t('comparison.goals'), t('comparison.assists')
 - Keys should match the component name (lowercase) and content type
@@ -343,12 +345,107 @@ write_file('src/components/Hero.jsx', code here);
 
 Generate component: ${componentName}
 ${componentName === 'Navbar' && isBilingual ? `
-CRITICAL FOR NAVBAR (BILINGUAL MODE):
-- MUST include a language toggle button
-- Use: const { t, language, toggleLanguage } = useLanguage()
-- Add a button to toggle between 'en' and 'ar': <button onClick={toggleLanguage}>{language === 'en' ? 'عربي' : 'English'}</button>
-- All text in Navbar must use translation keys: t('navbar.home'), t('navbar.about'), etc.
-- Include smooth scroll links to sections using anchor tags: <a href="#section-id">
+CRITICAL FOR NAVBAR (BILINGUAL MODE) - MUST CREATE COMPLETE NAVBAR WITH CONTENT:
+
+1. REQUIRED STRUCTURE:
+   - Fixed/sticky navbar at top with backdrop blur
+   - Logo or site name on the left
+   - Navigation links in the center/right (use navbar.links array from translations)
+   - Language toggle button on the right
+   - Mobile hamburger menu button (visible on small screens)
+
+2. TRANSLATION KEYS:
+   - Import: import { useLanguage } from '../i18n.js'
+   - Use: const { t, language, toggleLanguage } = useLanguage()
+   - Navigation links: Use navbar.links array - {(Array.isArray(t('navbar.links')) ? t('navbar.links') : []).map((link, index) => ...)}
+   - Link labels: t('navbar.home'), t('navbar.about'), t('navbar.services'), t('navbar.contact'), etc.
+   - Language toggle button text: {language === 'en' ? 'عربي' : 'English'}
+
+3. NAVIGATION LINKS STRUCTURE:
+   - Create navigation links based on available sections/components
+   - Use anchor tags with href="#section-id" for smooth scrolling
+   - Common links: #hero, #about, #features, #services, #gallery, #contact
+   - Match section IDs with actual components in the website
+
+4. MOBILE RESPONSIVENESS (CRITICAL):
+   - Desktop (md:): Show full navigation menu horizontally
+   - Mobile (< md): Show hamburger menu icon, hide navigation links
+   - Mobile menu: Toggle-able dropdown/sidebar menu with all links
+   - Use useState to manage mobile menu open/close state: const [isMenuOpen, setIsMenuOpen] = useState(false)
+   - Hamburger icon: Use SVG or Unicode (☰ or ✕ for close)
+   - Mobile menu: Absolute/fixed positioned, full width or slide-in from side
+   - Close menu when clicking a link
+
+5. STYLING REQUIREMENTS:
+   - Fixed position: fixed top-0 left-0 right-0 z-50
+   - Background: bg-white/90 backdrop-blur-md or bg-white with shadow
+   - Padding: px-4 md:px-6 py-4
+   - Responsive: flex items-center justify-between
+   - Mobile menu button: visible md:hidden
+   - Desktop links: hidden md:flex gap-6
+
+6. EXAMPLE STRUCTURE:
+const Navbar = () => {
+  const { t, language, toggleLanguage } = useLanguage();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navLinks = Array.isArray(t('navbar.links')) ? t('navbar.links') : [];
+  const linkHrefs = ['#hero', '#about', '#features', '#services', '#contact'];
+  
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-200">
+      <div className="container mx-auto px-4 md:px-6 py-4">
+        <div className="flex items-center justify-between">
+          {/* Logo */}
+          <div className="text-xl font-bold">{t('navbar.logo') || 'Logo'}</div>
+          
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-6">
+            {navLinks.map((link, index) => (
+              <a key={index} href={linkHrefs[index] || '#'} className="hover:text-blue-600 transition">
+                {link}
+              </a>
+            ))}
+            <button onClick={toggleLanguage} className="px-3 py-1 rounded bg-blue-600 text-white">
+              {language === 'en' ? 'عربي' : 'English'}
+            </button>
+          </div>
+          
+          {/* Mobile Menu Button */}
+          <button 
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden p-2"
+          >
+            {isMenuOpen ? '✕' : '☰'}
+          </button>
+        </div>
+        
+        {/* Mobile Menu */}
+        {isMenuOpen && (
+          <div className="md:hidden mt-4 pb-4 border-t border-gray-200">
+            {navLinks.map((link, index) => (
+              <a 
+                key={index} 
+                href={linkHrefs[index] || '#'} 
+                className="block py-2 hover:text-blue-600"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {link}
+              </a>
+            ))}
+            <button 
+              onClick={() => { toggleLanguage(); setIsMenuOpen(false); }} 
+              className="block mt-2 px-3 py-2 rounded bg-blue-600 text-white w-full"
+            >
+              {language === 'en' ? 'عربي' : 'English'}
+            </button>
+          </div>
+        )}
+      </div>
+    </nav>
+  );
+};
+
+IMPORTANT: Generate a COMPLETE, FUNCTIONAL navbar with actual navigation links, not just a placeholder!
 ` : ''}
 ${componentName !== 'Navbar' && !componentName.includes('Footer') ? 'IMPORTANT: Add an id attribute to the main section: <section id="' + componentName.toLowerCase() + '">. This id must match Navbar links.' : ''}
 
@@ -404,9 +501,13 @@ CRITICAL - BILINGUAL MODE:
 CRITICAL - ARRAY HANDLING FOR LIST ITEMS:
 - When using .map() on translation values (features list, links, menu items, etc.), ALWAYS use defensive code
 - Pattern: {(Array.isArray(t('features.list')) ? t('features.list') : []).map((item, index) => (...))}
-- Common array keys: features.list, features.items, navbar.links, footer.links, services.list, gallery.items
+- Common array keys: features.list, features.items, navbar.links, services.list, gallery.items
+- NOTE: Footer should NOT have links array - footer should only have copyright and optional social media
 - Always ensure the translation key returns an array before calling .map() to prevent "map is not a function" errors
-- Example for Features component: const featuresList = Array.isArray(t('features.list')) ? t('features.list') : []; {featuresList.map(...)}
+- CRITICAL: If array items are STRINGS, render directly: {array.map((item, i) => <div key={i}>{item}</div>)}
+- CRITICAL: If array items are OBJECTS (with title, description, etc.), you MUST access object properties: {array.map((item, i) => <div key={i}><h3>{item.title}</h3><p>{item.description}</p></div>)}
+- NEVER render an object directly: {item} is WRONG if item is {title: "...", description: "..."} - always use {item.title}, {item.description}
+- Example for Features component: const featuresList = Array.isArray(t('features.list')) ? t('features.list') : []; {featuresList.map((item, i) => typeof item === 'string' ? <div key={i}>{item}</div> : <div key={i}><h3>{item.title}</h3><p>{item.description}</p></div>)}
 
 User's request: ${userPrompt}`;
 
@@ -714,22 +815,27 @@ CRITICAL REQUIREMENTS:
 7. Return ONLY valid JSON format - no markdown, no code blocks, just the JSON object
 
 CRITICAL - ARRAY CONSISTENCY:
-- For ANY list/array-like content (features list, services list, menu items, navigation links, footer links, gallery items, etc.), you MUST use ARRAYS in JSON
+- For ANY list/array-like content (features list, services list, menu items, navigation links, gallery items, etc.), you MUST use ARRAYS in JSON
+- NOTE: Footer should NOT have links array - footer should only have copyright and optional social media
 - Examples of keys that MUST be arrays: "features.list", "features.items", "services", "links", "menu", "gallery.items", etc.
 - Arrays in JSON: "features": { "list": ["Feature 1", "Feature 2", "Feature 3"] }
 - NEVER use objects for list data: "features": { "list": { "item1": "..." } } is WRONG
 - If a component will use .map() on a translation key, that key MUST be an array in both English AND Arabic
-- Common array keys: navbar.links, footer.links, features.list, features.items, services.list, gallery.items
+- Common array keys: navbar.links, features.list, features.items, services.list, gallery.items
+- NOTE: Footer should NOT have links array - footer should only have copyright and optional social media
 
 Example JSON structure:
 {
   "navbar": {
+    "logo": "Site Name",
     "home": "Home",
     "about": "About Us",
     "services": "Services",
+    "features": "Features",
+    "gallery": "Gallery",
     "contact": "Contact",
     "toggleLanguage": "عربي",
-    "links": ["Home", "About", "Services", "Contact"]
+    "links": ["Home", "About", "Features", "Services", "Gallery", "Contact"]
   },
   "hero": {
     "title": "Welcome to Our ${plan.industry}",
@@ -740,9 +846,18 @@ Example JSON structure:
     "title": "Our Features",
     "list": ["Feature One", "Feature Two", "Feature Three"]
   },
+  "contact": {
+    "title": "Contact Us",
+    "subtitle": "Get in touch",
+    "name": "Name",
+    "email": "Email",
+    "message": "Message",
+    "submit": "Send Message",
+    "socialTitle": "Follow Us"
+  },
   "footer": {
     "copyright": "© 2024 Company Name. All rights reserved.",
-    "links": ["Home", "About", "Services", "Contact"]
+    "socialTitle": "Follow Us"
   }
 }
 
@@ -778,23 +893,30 @@ CRITICAL REQUIREMENTS:
 8. Return ONLY valid JSON format - no markdown, no code blocks, just the JSON object
 
 CRITICAL - ARRAY CONSISTENCY (MUST MATCH ENGLISH STRUCTURE):
-- For ANY list/array-like content (features list, services list, menu items, navigation links, footer links, gallery items, etc.), you MUST use ARRAYS in JSON - EXACTLY like the English version
+- For ANY list/array-like content (features list, services list, menu items, navigation links, gallery items, etc.), you MUST use ARRAYS in JSON
+- NOTE: Footer should NOT have links array - footer should only have copyright and optional social media - EXACTLY like the English version
 - The structure MUST match the English translation file - if English has "features.list" as an array, Arabic MUST also have "features.list" as an array
-- Arrays in JSON: "features": { "list": ["الميزة الأولى", "الميزة الثانية", "الميزة الثالثة"] }
-- NEVER use objects for list data: "features": { "list": { "item1": "..." } } is WRONG
+- Arrays in JSON can be arrays of strings: "features": { "list": ["الميزة الأولى", "الميزة الثانية", "الميزة الثالثة"] }
+- OR arrays of objects if structure needed: "features": { "list": [{"title": "...", "description": "..."}, ...] }
+- NEVER use objects for list data: "features": { "list": { "item1": "..." } } is WRONG (use arrays!)
+- IMPORTANT: If components map over arrays of objects, they MUST access properties (item.title, item.description), never render objects directly
 - If a component will use .map() on a translation key, that key MUST be an array in BOTH English AND Arabic
-- Common array keys that MUST be arrays: navbar.links, footer.links, features.list, features.items, services.list, gallery.items
+- Common array keys that MUST be arrays: navbar.links, features.list, features.items, services.list, gallery.items
+- NOTE: Footer should NOT have links array - footer should only have copyright and optional social media
 - Ensure array lengths match between English and Arabic versions when possible
 
 Example JSON structure:
 {
   "navbar": {
+    "logo": "اسم الموقع",
     "home": "الرئيسية",
     "about": "من نحن",
     "services": "الخدمات",
+    "features": "الميزات",
+    "gallery": "المعرض",
     "contact": "اتصل بنا",
     "toggleLanguage": "English",
-    "links": ["الرئيسية", "من نحن", "الخدمات", "اتصل بنا"]
+    "links": ["الرئيسية", "من نحن", "الميزات", "الخدمات", "المعرض", "اتصل بنا"]
   },
   "hero": {
     "title": "مرحباً بك في موقعنا",
@@ -805,9 +927,18 @@ Example JSON structure:
     "title": "ميزاتنا",
     "list": ["الميزة الأولى", "الميزة الثانية", "الميزة الثالثة"]
   },
+  "contact": {
+    "title": "اتصل بنا",
+    "subtitle": "تواصل معنا",
+    "name": "الاسم",
+    "email": "البريد الإلكتروني",
+    "message": "الرسالة",
+    "submit": "إرسال الرسالة",
+    "socialTitle": "تابعنا"
+  },
   "footer": {
     "copyright": "© 2024 اسم الشركة. جميع الحقوق محفوظة.",
-    "links": ["الرئيسية", "من نحن", "الخدمات", "اتصل بنا"]
+    "socialTitle": "تابعنا"
   }
 }
 

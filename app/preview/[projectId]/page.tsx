@@ -237,9 +237,6 @@ export default function Preview() {
           <div className="h-6 w-px bg-border" />
           <div className="min-w-0">
             <h1 className="text-sm font-semibold truncate">{project.name}</h1>
-            <p className="text-xs text-muted-foreground">
-              {t('preview.version')} {selectedVersion}
-            </p>
           </div>
         </div>
 
