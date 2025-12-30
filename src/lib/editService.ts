@@ -101,20 +101,8 @@ export async function editSiteFromPrompt(args: {
     }
   });
 
-  // Step 6: Determine language mode from existing files
-  // Check if bilingual files exist (i18n.js, locales)
-  const hasI18n = projectFiles['src/i18n.js'] || projectFiles['src/locales/en.json'];
-  const hasArabicOnly = workspaceFiles.some(f => 
-    f.path.includes('ar.json') || 
-    (f.content && /[\u0600-\u06FF]/.test(f.content) && !hasI18n)
-  );
-  
-  let languageMode = 'english-only';
-  if (hasI18n) {
-    languageMode = 'bilingual';
-  } else if (hasArabicOnly) {
-    languageMode = 'arabic-only';
-  }
+  // Step 6: Always use bilingual mode (all websites are bilingual now)
+  const languageMode = 'bilingual';
 
   // Step 7: Create new build with edited files
   console.log(`📦 Creating new build version with edited files...`);

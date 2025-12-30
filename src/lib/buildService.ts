@@ -65,6 +65,9 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
       // File path: "src/components/HistoryTimeline.jsx" -> componentName: "HistoryTimeline"
       let componentName = path.replace('src/components/', '').replace('.jsx', '');
       
+      // Remove invalid characters (parentheses, brackets, etc.) that can't be in JavaScript identifiers
+      componentName = componentName.replace(/[^a-zA-Z0-9\/\\\-_]/g, '');
+      
       // Only sanitize if there are path separators (slashes, dashes, underscores)
       // e.g., "Features/services" -> "FeaturesServices"
       // But preserve normal component names like "HistoryTimeline" as-is
@@ -72,6 +75,7 @@ export function generatePreviewHTML(files: ProjectFiles, languageMode: string): 
         // Has separators - split and convert each part to PascalCase
         componentName = componentName
           .split(/[\/\\\-_]+/)
+          .filter(part => part.length > 0) // Remove empty strings
           .map(part => {
             // Capitalize first letter, preserve rest (don't force lowercase)
             return part.charAt(0).toUpperCase() + part.slice(1);

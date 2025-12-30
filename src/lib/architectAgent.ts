@@ -83,9 +83,12 @@ export function architectGeneration(plan: GenerationPlan): ArchitecturePlan {
 
   // Helper function to convert section name to valid component name
   function sectionToComponentName(section: string): string {
-    // Remove spaces and invalid characters, then capitalize each word
-    return section
+    // Remove all invalid characters (parentheses, brackets, etc.) and keep only alphanumeric, spaces, dashes, underscores
+    const cleaned = section.replace(/[^a-zA-Z0-9\s\-_]/g, ' ');
+    // Split on spaces, dashes, underscores and convert to PascalCase
+    return cleaned
       .split(/[\s\-_]+/)
+      .filter(word => word.length > 0) // Remove empty strings
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join('');
   }
@@ -117,24 +120,22 @@ export function architectGeneration(plan: GenerationPlan): ArchitecturePlan {
     components.push(componentName);
   });
 
-  // Translation files if bilingual
-  if (plan.languageMode === 'BILINGUAL') {
-    const i18nFiles = [
-      { path: 'src/i18n.js', description: 'i18n configuration and LanguageProvider' },
-      { path: 'src/locales/en.json', description: 'English translations' },
-      { path: 'src/locales/ar.json', description: 'Arabic translations' },
-    ];
+  // Translation files - ALWAYS include (all websites are bilingual now)
+  const i18nFiles = [
+    { path: 'src/i18n.js', description: 'i18n configuration and LanguageProvider' },
+    { path: 'src/locales/en.json', description: 'English translations' },
+    { path: 'src/locales/ar.json', description: 'Arabic translations' },
+  ];
 
-    i18nFiles.forEach(file => {
-      tasks.push({
-        path: file.path,
-        type: 'translation',
-        description: file.description,
-        priority: 'required',
-      });
-      translationFiles.push(file.path);
+  i18nFiles.forEach(file => {
+    tasks.push({
+      path: file.path,
+      type: 'translation',
+      description: file.description,
+      priority: 'required',
     });
-  }
+    translationFiles.push(file.path);
+  });
 
   // Assets (optional - placeholder logo)
   assets.push('public/logo.png');

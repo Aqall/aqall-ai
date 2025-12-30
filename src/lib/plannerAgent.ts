@@ -60,56 +60,13 @@ function analyzeLanguageContent(text: string): {
 }
 
 /**
- * Automatic language detection from prompt
- * Priority: Explicit instructions > Automatic detection
+ * Language mode detection - ALWAYS returns BILINGUAL
+ * All websites now support both English and Arabic with language toggle
  */
 function detectLanguageMode(prompt: string): 'ARABIC_ONLY' | 'ENGLISH_ONLY' | 'BILINGUAL' {
-  const lowerPrompt = prompt.toLowerCase();
-  
-  // 1. Check for explicit instructions (highest priority)
-  if (lowerPrompt.includes('bilingual') || 
-      lowerPrompt.includes('both languages') ||
-      lowerPrompt.includes('english and arabic') ||
-      lowerPrompt.includes('عربي وإنجليزي') ||
-      lowerPrompt.includes('en + ar') ||
-      lowerPrompt.includes('ar + en')) {
-    return 'BILINGUAL';
-  }
-  
-  if (lowerPrompt.includes('arabic only') || 
-      lowerPrompt.includes('عربي فقط') ||
-      lowerPrompt.includes('arabic-only') ||
-      lowerPrompt.includes('only arabic')) {
-    return 'ARABIC_ONLY';
-  }
-  
-  if (lowerPrompt.includes('english only') || 
-      lowerPrompt.includes('إنجليزي فقط') ||
-      lowerPrompt.includes('english-only') ||
-      lowerPrompt.includes('only english')) {
-    return 'ENGLISH_ONLY';
-  }
-  
-  // 2. Automatic detection based on script content
-  const { arabicCount, englishCount, totalChars } = analyzeLanguageContent(prompt);
-  
-  // If mostly Arabic (70%+ Arabic characters)
-  if (arabicCount > 0 && arabicCount / totalChars > 0.7 && englishCount < arabicCount) {
-    return 'ARABIC_ONLY';
-  }
-  
-  // If substantial mix (both Arabic and English present significantly)
-  if (arabicCount > 10 && englishCount > 10) {
-    return 'BILINGUAL';
-  }
-  
-  // If only Arabic present
-  if (arabicCount > 0 && englishCount === 0) {
-    return 'ARABIC_ONLY';
-  }
-  
-  // Default: English only
-  return 'ENGLISH_ONLY';
+  // Force all websites to be bilingual (always include language toggle)
+  // Users can toggle between English and Arabic in the navbar
+  return 'BILINGUAL';
   }
 
 /**

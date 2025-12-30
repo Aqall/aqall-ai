@@ -32,7 +32,7 @@ export async function codeGeneration(
 ): Promise<void> {
   const openai = getOpenAIClient();
 
-  // Generate files in order: configs → components → entry files → translations
+  // Generate files in order: configs → translations FIRST → components → entry files
   const requiredTasks = architecture.tasks.filter(t => t.priority === 'required');
 
   // Step 1: Generate config files
@@ -40,7 +40,12 @@ export async function codeGeneration(
     await generateConfigFile(task, plan, fileTools, openai);
   }
 
-  // Step 2: Generate required components
+  // Step 2: Generate translation files FIRST (before components so components know what keys exist)
+  for (const task of requiredTasks.filter(t => t.type === 'translation')) {
+    await generateTranslationFile(task, plan, architecture, fileTools, openai, userPrompt);
+  }
+
+  // Step 3: Generate required components (they can now reference translation keys)
   const requiredComponents = requiredTasks.filter(t => t.type === 'component');
   console.log(`📦 Generating ${requiredComponents.length} required components:`, requiredComponents.map(t => t.path));
   
@@ -48,7 +53,7 @@ export async function codeGeneration(
     await generateComponent(task, plan, architecture, fileTools, openai, userPrompt);
   }
 
-  // Step 3: Generate entry files (App.jsx needs components to exist first)
+  // Step 4: Generate entry files (App.jsx needs components to exist first)
   // Generate main.jsx and index.css first, then App.jsx
   const entryTasks = requiredTasks.filter(t => t.type === 'entry');
   const appJsxTask = entryTasks.find(t => t.path === 'src/App.jsx');
@@ -62,13 +67,6 @@ export async function codeGeneration(
   // Generate App.jsx last, after all components exist
   if (appJsxTask) {
     await generateEntryFile(appJsxTask, plan, architecture, fileTools, openai);
-  }
-
-  // Step 4: Generate translation files if bilingual
-  if (plan.languageMode === 'BILINGUAL') {
-    for (const task of requiredTasks.filter(t => t.type === 'translation')) {
-      await generateTranslationFile(task, plan, architecture, fileTools, openai);
-    }
   }
 }
 
@@ -106,22 +104,12 @@ Requirements:
 
 Return ONLY valid JSON, no markdown, no code blocks.`;
   } else if (fileName === 'index.html') {
-    const isBilingual = plan.languageMode === 'BILINGUAL';
-    const isArabicOnly = plan.languageMode === 'ARABIC_ONLY';
-    
+    // Always bilingual - include both English and Arabic fonts
     const fontLinks: string[] = [];
-    if (!isArabicOnly) {
-      fontLinks.push('<link rel="preconnect" href="https://fonts.googleapis.com">');
-      fontLinks.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
-      fontLinks.push('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">');
-    }
-    if (isArabicOnly || isBilingual) {
-      if (fontLinks.length === 0) {
-        fontLinks.push('<link rel="preconnect" href="https://fonts.googleapis.com">');
-        fontLinks.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
-      }
-      fontLinks.push('<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Tajawal:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">');
-    }
+    fontLinks.push('<link rel="preconnect" href="https://fonts.googleapis.com">');
+    fontLinks.push('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
+    fontLinks.push('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">');
+    fontLinks.push('<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">');
     const fontLinksHtml = fontLinks.join('\n    ');
     
     systemPrompt = `You are an expert at generating index.html files for Vite + React + Tailwind projects.
@@ -130,7 +118,7 @@ Generate the complete index.html file.
 
 MANDATORY CONTENT:
 <!DOCTYPE html>
-<html lang="${isArabicOnly ? 'ar' : 'en'}" dir="${isArabicOnly ? 'rtl' : 'ltr'}">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
@@ -199,9 +187,11 @@ async function generateComponent(
     if (match) {
       componentName = match;
     } else {
-      // Fallback: ensure component name is valid
-      componentName = componentName
+      // Fallback: ensure component name is valid (remove invalid characters)
+      const cleaned = componentName.replace(/[^a-zA-Z0-9\s\-_]/g, ' ');
+      componentName = cleaned
         .split(/[\s\-_]+/)
+        .filter(word => word.length > 0)
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join('');
     }
@@ -212,8 +202,8 @@ async function generateComponent(
   }
   
   console.log(`🔨 Generating component: ${componentName} (path: ${task.path})`);
-  const isBilingual = plan.languageMode === 'BILINGUAL';
-  const isArabicOnly = plan.languageMode === 'ARABIC_ONLY';
+  // All websites are now bilingual (always support both English and Arabic)
+  const isBilingual = true;
 
   const systemPrompt = `You are the Coder Agent for Aqall.  
 You are responsible for creating and editing files inside the project workspace using file tools.
@@ -237,7 +227,6 @@ You receive:
 
 ### Core requirements:
 - Generate a REAL working Vite + React + Tailwind project.
-- All text must respect languageMode.
 - All components must follow Lovable's UI aesthetic.
 - Do NOT regenerate files unnecessarily.
 - Only write missing files or patch existing ones.
@@ -276,25 +265,39 @@ You receive:
 - Smooth transitions: transition-all duration-300
 
 ========================================================
-= 4. LANGUAGE MODE HANDLING                            =
+= 4. LANGUAGE MODE HANDLING (ALWAYS BILINGUAL)         =
 ========================================================
 
-### If ARABIC_ONLY:
-- Hardcode Arabic strings
-- All layout direction must be RTL
+CRITICAL: All websites support BOTH English and Arabic with a language toggle button.
 
-### If ENGLISH_ONLY:
-- Hardcode English strings
+### BILINGUAL MODE (ALWAYS):
+- NO hardcoded strings allowed
+- ALL text must come from translation files (en.json, ar.json)
+- MUST use the translation hook: const { t, language } = useLanguage()
+- Example: <h1>{t('hero.title')}</h1> instead of <h1>Welcome</h1>
+- All components must import: import { useLanguage } from '../i18n.js' (or appropriate path)
+- Text direction (RTL/LTR) is handled automatically by LanguageProvider based on selected language
 
-### If BILINGUAL:
-- No hardcoded strings allowed
-- All text loaded from locales (en.json, ar.json)
-- Structure must use a translation hook or function
-
-Current language mode: ${plan.languageMode}
-${isBilingual ? 'Use i18n: const { t, language } = useLanguage() for all text' : ''}
-${isArabicOnly ? 'Hardcode Arabic text, use dir="rtl"' : ''}
-${!isBilingual && !isArabicOnly ? 'Hardcode English text' : ''}
+### Translation Keys - CRITICAL RULES:
+- ALWAYS access NESTED properties: t('componentName.key') NOT t('componentName')
+- NEVER render objects directly: {t('comparison')} is WRONG - it returns an object
+- ALWAYS access specific keys: {t('comparison.goals')}, {t('comparison.title')}, etc.
+- If you need multiple values from the same section, access each key individually:
+  - CORRECT: <div>{t('comparison.goals')}</div> <div>{t('comparison.assists')}</div>
+  - WRONG: <div>{t('comparison')}</div> (this returns an object and causes errors)
+- For arrays (like menu items, links, features list):
+  - In JSON, arrays must be actual arrays: { "footer": { "links": ["Home", "About", "Contact"] } }
+  - Component MUST use defensive code: {(Array.isArray(t('footer.links')) ? t('footer.links') : []).map(...)}
+  - ALWAYS check if the value is an array before calling .map() to prevent errors
+  - Pattern: {(Array.isArray(t('key')) ? t('key') : []).map(...)} or {(t('key') || []).map(...)} if you're sure it's always an array
+  - BUT: Ensure the translation JSON has arrays, not objects - both English AND Arabic must use arrays
+  - If you need structured data, use array of objects: { "links": [{ "label": "Home", "href": "#" }, ...] }
+  - Then access: {(Array.isArray(t('footer.links')) ? t('footer.links') : []).map(link => ...)}
+  - Common array keys: features.list, features.items, navbar.links, footer.links, services, gallery.items
+- Translation structure in JSON: { "comparison": { "title": "...", "goals": "...", "assists": "..." } }
+- Component must access: t('comparison.title'), t('comparison.goals'), t('comparison.assists')
+- Keys should match the component name (lowercase) and content type
+- Example: Component "Comparison" uses keys like 'comparison.title', 'comparison.goals', 'comparison.assists'
 
 ========================================================
 = 5. EDITING / PATCH MODE                              =
@@ -339,26 +342,73 @@ Example of WRONG output:
 write_file('src/components/Hero.jsx', code here);
 
 Generate component: ${componentName}
+${componentName === 'Navbar' && isBilingual ? `
+CRITICAL FOR NAVBAR (BILINGUAL MODE):
+- MUST include a language toggle button
+- Use: const { t, language, toggleLanguage } = useLanguage()
+- Add a button to toggle between 'en' and 'ar': <button onClick={toggleLanguage}>{language === 'en' ? 'عربي' : 'English'}</button>
+- All text in Navbar must use translation keys: t('navbar.home'), t('navbar.about'), etc.
+- Include smooth scroll links to sections using anchor tags: <a href="#section-id">
+` : ''}
 ${componentName !== 'Navbar' && !componentName.includes('Footer') ? 'IMPORTANT: Add an id attribute to the main section: <section id="' + componentName.toLowerCase() + '">. This id must match Navbar links.' : ''}
 
 Return ONLY the complete, polished component code with NO syntax errors, NO markdown, NO code blocks, NO file operation syntax.`;
 
   // Get the list of components that will actually be generated
   function sectionToComponentName(section: string): string {
-    return section
+    // Remove all invalid characters (parentheses, brackets, etc.) and keep only alphanumeric, spaces, dashes, underscores
+    const cleaned = section.replace(/[^a-zA-Z0-9\s\-_]/g, ' ');
+    // Split on spaces, dashes, underscores and convert to PascalCase
+    return cleaned
       .split(/[\s\-_]+/)
+      .filter(word => word.length > 0) // Remove empty strings
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join('');
   }
 
   const actualComponents = plan.requiredSections.map(s => sectionToComponentName(s));
   
+  // Try to read translation files to see what keys are available (if translations already generated)
+  let translationKeysHint = '';
+  try {
+    const enJsonContent = await fileTools.read_file('src/locales/en.json');
+    if (enJsonContent) {
+      const translations = JSON.parse(enJsonContent);
+      const componentKey = componentName.toLowerCase();
+      if (translations[componentKey]) {
+        const keys = Object.keys(translations[componentKey]);
+        translationKeysHint = `\nAvailable translation keys for ${componentName} component: ${keys.map(k => `"${componentKey}.${k}"`).join(', ')}\nUse these exact keys in your component: t('${componentKey}.${keys[0]}'), t('${componentKey}.${keys[1]}'), etc.`;
+      }
+    }
+  } catch (e) {
+    // Translations not generated yet, that's okay - use standard keys
+    const componentKey = componentName.toLowerCase();
+    translationKeysHint = `\nUse standard translation keys like: t('${componentKey}.title'), t('${componentKey}.subtitle'), t('${componentKey}.description'), etc.\nMake sure these keys exist in both en.json and ar.json translation files.`;
+  }
+  
   const userMessage = `Generate ${componentName} component for a ${plan.industry} website.
 
 IMPORTANT: This website will have ONLY these components: ${actualComponents.join(', ')}.
 Do NOT reference or import any other components that are not in this list.
-${isBilingual ? 'Use translation keys from i18n system.' : ''}
-${userPrompt}`;
+
+CRITICAL - BILINGUAL MODE:
+- ALL text must use translation keys from i18n system
+- Import: import { useLanguage } from '../i18n.js'
+- Use: const { t } = useLanguage()
+- NEVER hardcode text like <h1>Welcome</h1> - ALWAYS use: <h1>{t('${componentName.toLowerCase()}.title')}</h1>
+- NEVER render translation objects directly: {t('comparison')} is WRONG - React cannot render objects
+- ALWAYS access nested keys individually: {t('comparison.goals')}, {t('comparison.title')}, {t('comparison.description')}
+- If you need multiple values, access each key separately, never render the parent object
+- All text content must reference translation keys from en.json and ar.json${translationKeysHint}
+
+CRITICAL - ARRAY HANDLING FOR LIST ITEMS:
+- When using .map() on translation values (features list, links, menu items, etc.), ALWAYS use defensive code
+- Pattern: {(Array.isArray(t('features.list')) ? t('features.list') : []).map((item, index) => (...))}
+- Common array keys: features.list, features.items, navbar.links, footer.links, services.list, gallery.items
+- Always ensure the translation key returns an array before calling .map() to prevent "map is not a function" errors
+- Example for Features component: const featuresList = Array.isArray(t('features.list')) ? t('features.list') : []; {featuresList.map(...)}
+
+User's request: ${userPrompt}`;
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4.1',
@@ -419,16 +469,19 @@ async function generateEntryFile(
   openai: OpenAI
 ): Promise<void> {
   const fileName = task.path.split('/').pop() || '';
-  const isBilingual = plan.languageMode === 'BILINGUAL';
+  // Force all websites to be bilingual (always include language toggle)
+  const isBilingual = true; // Always bilingual now
 
   let systemPrompt = '';
   if (fileName === 'main.jsx') {
+    // Always bilingual - always wrap with LanguageProvider
     systemPrompt = `Generate src/main.jsx for Vite + React project.
 - Import React and ReactDOM
 - Import App component
+- Import LanguageProvider from './i18n.js'
 - Import index.css
 - Use ReactDOM.createRoot
-- ${isBilingual ? 'Wrap App with LanguageProvider' : ''}
+- Wrap App with LanguageProvider: <LanguageProvider><App /></LanguageProvider>
 - Return ONLY the file content, no markdown.`;
   } else if (fileName === 'App.jsx') {
     // Use architecture.components as source of truth
@@ -437,8 +490,12 @@ async function generateEntryFile(
     if (componentNames.length === 0) {
       // Fallback: derive from plan.requiredSections
       function sectionToComponentName(section: string): string {
-        return section
+        // Remove all invalid characters (parentheses, brackets, etc.) and keep only alphanumeric, spaces, dashes, underscores
+        const cleaned = section.replace(/[^a-zA-Z0-9\s\-_]/g, ' ');
+        // Split on spaces, dashes, underscores and convert to PascalCase
+        return cleaned
           .split(/[\s\-_]+/)
+          .filter(word => word.length > 0) // Remove empty strings
           .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
           .join('');
       }
@@ -484,8 +541,8 @@ async function generateEntryFile(
       .join('\n');
     
     // Generate App.jsx programmatically to ensure accuracy
-    const appJsxContent = isBilingual
-      ? `import LanguageProvider from './i18n.js';
+    // Always use bilingual mode now (default is BILINGUAL)
+    const appJsxContent = `import LanguageProvider from './i18n.js';
 ${componentImports}
 
 function App() {
@@ -498,32 +555,16 @@ ${componentRenders}
   );
 }
 
-export default App;`
-      : `${componentImports}
-
-function App() {
-  return (
-    <div className="min-h-screen">
-${componentRenders}
-    </div>
-  );
-}
-
 export default App;`;
     
     // Write directly instead of using AI to avoid hallucinations
     await fileTools.write_file('src/App.jsx', appJsxContent);
     return; // Skip AI generation for App.jsx
   } else if (fileName === 'index.css') {
-    const isArabicOnly = plan.languageMode === 'ARABIC_ONLY';
-    
+    // Always bilingual now - include both fonts
     const englishFont = 'Inter, system-ui, sans-serif';
     const arabicFont = 'Cairo, system-ui, sans-serif';
-    const fontFamily = isArabicOnly 
-      ? arabicFont 
-      : isBilingual 
-        ? `${englishFont}, ${arabicFont}`
-        : englishFont;
+    const fontFamily = `${englishFont}, ${arabicFont}`;
     
     systemPrompt = `Generate src/index.css with Tailwind imports and professional global styles.
 
@@ -550,11 +591,9 @@ MANDATORY CONTENT:
     -moz-osx-font-smoothing: grayscale;
   }
   
-  ${isArabicOnly || isBilingual ? `
   [dir="rtl"] {
     font-family: ${arabicFont};
   }
-  ` : ''}
 }
 
 @layer utilities {
@@ -603,7 +642,8 @@ async function generateTranslationFile(
   plan: GenerationPlan,
   architecture: ArchitecturePlan,
   fileTools: FileTools,
-  openai: OpenAI
+  openai: OpenAI,
+  userPrompt: string
 ): Promise<void> {
   if (task.path === 'src/i18n.js') {
     // Generate i18n.js with LanguageProvider
@@ -635,7 +675,16 @@ export default function LanguageProvider({ children }) {
     for (const k of keys) {
       value = value?.[k];
     }
-    return value || key;
+    // If value is undefined or null, return the key or empty string for arrays
+    if (value === undefined || value === null) {
+      return key;
+    }
+    // If value is an object (not an array), return as-is (component should access nested keys)
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      return value;
+    }
+    // Return the value (string, number, array, etc.)
+    return value;
   };
   
   useEffect(() => {
@@ -651,28 +700,62 @@ export default function LanguageProvider({ children }) {
 }`;
     await fileTools.write_file(task.path, i18nContent);
   } else if (task.path.includes('en.json')) {
-    // Generate English translations
-    const systemPrompt = `Generate English translation JSON for a ${plan.industry} website.
+    // Generate English translations with actual content based on user prompt
+    const componentKeys = architecture.components.map(c => c.toLowerCase()).join(', ');
+    const systemPrompt = `You are generating English translations for a ${plan.industry} website. You MUST return valid JSON only.
 
-Create a JSON object with translation keys for all sections: ${architecture.components.join(', ')}.
+CRITICAL REQUIREMENTS:
+1. Generate ACTUAL, MEANINGFUL translations based on the user's request - NOT placeholder text like "hero.title" or "..."
+2. Create comprehensive translations for ALL components: ${componentKeys}
+3. Use descriptive keys that match component names (e.g., "hero", "navbar", "footer")
+4. Include ALL text content that will appear in each section
+5. For Navbar: Include navigation links and language toggle text
+6. Make translations professional and contextually appropriate for a ${plan.industry} website
+7. Return ONLY valid JSON format - no markdown, no code blocks, just the JSON object
 
-Structure:
+CRITICAL - ARRAY CONSISTENCY:
+- For ANY list/array-like content (features list, services list, menu items, navigation links, footer links, gallery items, etc.), you MUST use ARRAYS in JSON
+- Examples of keys that MUST be arrays: "features.list", "features.items", "services", "links", "menu", "gallery.items", etc.
+- Arrays in JSON: "features": { "list": ["Feature 1", "Feature 2", "Feature 3"] }
+- NEVER use objects for list data: "features": { "list": { "item1": "..." } } is WRONG
+- If a component will use .map() on a translation key, that key MUST be an array in both English AND Arabic
+- Common array keys: navbar.links, footer.links, features.list, features.items, services.list, gallery.items
+
+Example JSON structure:
 {
-  "nav": { "home": "Home", "about": "About", ... },
-  "hero": { "title": "...", "subtitle": "..." },
-  ...
+  "navbar": {
+    "home": "Home",
+    "about": "About Us",
+    "services": "Services",
+    "contact": "Contact",
+    "toggleLanguage": "عربي",
+    "links": ["Home", "About", "Services", "Contact"]
+  },
+  "hero": {
+    "title": "Welcome to Our ${plan.industry}",
+    "subtitle": "We provide exceptional service",
+    "cta": "Get Started"
+  },
+  "features": {
+    "title": "Our Features",
+    "list": ["Feature One", "Feature Two", "Feature Three"]
+  },
+  "footer": {
+    "copyright": "© 2024 Company Name. All rights reserved.",
+    "links": ["Home", "About", "Services", "Contact"]
+  }
 }
 
-Return ONLY valid JSON, no markdown.`;
+Generate comprehensive, actual translations in valid JSON format - NOT placeholders.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4.1',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Generate English translations for ${plan.industry} website.` },
+        { role: 'user', content: `User's original request: "${userPrompt}"\n\nGenerate complete English translations in JSON format for all components in this ${plan.industry} website. Return valid JSON with all text content, not just placeholder keys.` },
       ],
-      temperature: 0.5,
-      max_tokens: 2000,
+      temperature: 0.7,
+      max_tokens: 3000,
       response_format: { type: 'json_object' },
     });
 
@@ -680,28 +763,64 @@ Return ONLY valid JSON, no markdown.`;
     const cleaned = content.replace(/^```json\n?/, '').replace(/\n?```$/, '');
     await fileTools.write_file(task.path, cleaned);
   } else if (task.path.includes('ar.json')) {
-    // Generate Arabic translations
-    const systemPrompt = `Generate Arabic translation JSON for a ${plan.industry} website.
+    // Generate Arabic translations with actual content based on user prompt
+    const componentKeys = architecture.components.map(c => c.toLowerCase()).join(', ');
+    const systemPrompt = `You are generating Arabic translations for a ${plan.industry} website. You MUST return valid JSON only.
 
-Create a JSON object with Arabic translation keys for all sections: ${architecture.components.join(', ')}.
+CRITICAL REQUIREMENTS:
+1. Generate ACTUAL, MEANINGFUL Arabic translations - NOT placeholder text like "..." or English text
+2. Create comprehensive translations for ALL components: ${componentKeys}
+3. Use descriptive keys that match component names (e.g., "hero", "navbar", "footer")
+4. Include ALL text content that will appear in each section
+5. For Navbar: Include navigation links and language toggle text
+6. Make translations professional and contextually appropriate for a ${plan.industry} website
+7. ALL text must be in proper Arabic - translate naturally, don't just transliterate
+8. Return ONLY valid JSON format - no markdown, no code blocks, just the JSON object
 
-Structure:
+CRITICAL - ARRAY CONSISTENCY (MUST MATCH ENGLISH STRUCTURE):
+- For ANY list/array-like content (features list, services list, menu items, navigation links, footer links, gallery items, etc.), you MUST use ARRAYS in JSON - EXACTLY like the English version
+- The structure MUST match the English translation file - if English has "features.list" as an array, Arabic MUST also have "features.list" as an array
+- Arrays in JSON: "features": { "list": ["الميزة الأولى", "الميزة الثانية", "الميزة الثالثة"] }
+- NEVER use objects for list data: "features": { "list": { "item1": "..." } } is WRONG
+- If a component will use .map() on a translation key, that key MUST be an array in BOTH English AND Arabic
+- Common array keys that MUST be arrays: navbar.links, footer.links, features.list, features.items, services.list, gallery.items
+- Ensure array lengths match between English and Arabic versions when possible
+
+Example JSON structure:
 {
-  "nav": { "home": "الرئيسية", "about": "من نحن", ... },
-  "hero": { "title": "...", "subtitle": "..." },
-  ...
+  "navbar": {
+    "home": "الرئيسية",
+    "about": "من نحن",
+    "services": "الخدمات",
+    "contact": "اتصل بنا",
+    "toggleLanguage": "English",
+    "links": ["الرئيسية", "من نحن", "الخدمات", "اتصل بنا"]
+  },
+  "hero": {
+    "title": "مرحباً بك في موقعنا",
+    "subtitle": "نقدم خدمات استثنائية",
+    "cta": "ابدأ الآن"
+  },
+  "features": {
+    "title": "ميزاتنا",
+    "list": ["الميزة الأولى", "الميزة الثانية", "الميزة الثالثة"]
+  },
+  "footer": {
+    "copyright": "© 2024 اسم الشركة. جميع الحقوق محفوظة.",
+    "links": ["الرئيسية", "من نحن", "الخدمات", "اتصل بنا"]
+  }
 }
 
-Return ONLY valid JSON, no markdown.`;
+Generate comprehensive, actual Arabic translations in valid JSON format - NOT placeholders or English text.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4.1',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Generate Arabic translations for ${plan.industry} website.` },
+        { role: 'user', content: `User's original request: "${userPrompt}"\n\nGenerate complete Arabic translations in JSON format for all components in this ${plan.industry} website. Return valid JSON with all text content in proper Arabic, not just placeholder keys.` },
       ],
-      temperature: 0.5,
-      max_tokens: 2000,
+      temperature: 0.7,
+      max_tokens: 3000,
       response_format: { type: 'json_object' },
     });
 
