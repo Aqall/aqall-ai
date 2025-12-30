@@ -30,6 +30,9 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: 'Aqall - AI Website Builder',
   description: 'Build websites with AI in Arabic or English',
+  icons: {
+    icon: '/images/logo.png',
+  },
 };
 
 export default function RootLayout({
